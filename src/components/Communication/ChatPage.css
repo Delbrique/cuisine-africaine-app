@@ -1,0 +1,29 @@
+/* ChatPage.css */
+.chat-root {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
+  color: #333;
+}
+
+#bg-video {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.chat-root.dark {
+  color: #eee;
+}
+
+.chat-root.dark .MuiPaper-root {
+  background: linear-gradient(135deg, #2e7d32, #1b5e20);
+  color: white;
+}
+
+.chat-root.light .MuiPaper-root {
+  background: linear-gradient(135deg, #d0f0c0, #ffffff);
+}
