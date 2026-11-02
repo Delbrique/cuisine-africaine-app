@@ -1,134 +1,83 @@
 // src/App.js
-import React, { useState, useEffect } from 'react';
-import { AppBar, Toolbar, Typography, Box, Button, CircularProgress } from '@mui/material';
-import { BrowserRouter as Router, Routes, Route, Link as RouterLink, useNavigate } from 'react-router-dom';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { auth } from './firebase/firebase';
-import ChatPage from './components/Communication/ChatPage';
+import React, { Suspense, lazy, useEffect } from 'react';
+import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
+import { Button } from '@mui/material';
+import { ThemeProvider, useColorScheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { SnackbarProvider, closeSnackbar, enqueueSnackbar } from 'notistack';
 
-// Importez les composants de thème de Material-UI
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline'; // Pour réinitialiser les styles CSS du navigateur
+import theme from './theme/theme';
+import { AuthProvider, PublicOnly, RequireAuth } from './auth/AuthContext';
+import { ConfirmProvider } from './components/ui';
+import SplashScreen from './components/SplashScreen';
+import { applyUpdate } from './serviceWorkerRegistration';
 
-// Importez votre thème personnalisé
-import theme from './theme/theme'; // Assurez-vous que le chemin est correct
+const LoginPage = lazy(() => import('./components/LoginPage'));
+const InscriptionPage = lazy(() => import('./components/InscriptionPage'));
+const ConfigurerFamillePage = lazy(() => import('./pages/ConfigurerFamillePage'));
+const FamilleDashboardLayout = lazy(() => import('./pages/Dashboard/FamilleDashboardLayout'));
 
-import InscriptionPage from './components/InscriptionPage';
-import LoginPage from './components/LoginPage';
-import ConfigurerFamillePage from './pages/ConfigurerFamillePage';
-import FamilleDashboardLayout from './pages/Dashboard/FamilleDashboardLayout';
-// StockPage is already imported within FamilleDashboardLayout, no need to import here directly unless it's a standalone route.
-
-// Component for the logout button in the AppBar
-const LogoutButton = () => {
-  const navigate = useNavigate();
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate('/login');
-    } catch (error) {
-      console.error('Erreur de déconnexion :', error);
-    }
-  };
-
-  return (
-    <Button color="inherit" onClick={handleLogout}>
-      Déconnexion
-    </Button>
-  );
-};
-
-// Composant pour les routes protégées
-const PrivateRoute = ({ children }) => {
-  const [loading, setLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const navigate = useNavigate();
-
+/** Propose de recharger quand une nouvelle version de la PWA est disponible. */
+function UpdateNotifier() {
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
-        navigate('/login'); // Rediriger vers la page de connexion si non authentifié
-      }
-      setLoading(false);
+    const onUpdate = (e) =>
+      enqueueSnackbar('Une nouvelle version est disponible.', {
+        variant: 'info',
+        persist: true,
+        action: (key) => (
+          <Button color="inherit" size="small" onClick={() => { closeSnackbar(key); applyUpdate(e.detail); }}>
+            Mettre à jour
+          </Button>
+        ),
+      });
+    window.addEventListener('sw-update', onUpdate);
+    return () => window.removeEventListener('sw-update', onUpdate);
+  }, []);
+  return null;
+}
+
+/** Aligne la couleur de la barre d'état (PWA) sur le thème choisi. */
+function ThemeColorSync() {
+  const { colorScheme } = useColorScheme();
+  useEffect(() => {
+    if (!colorScheme) return;
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => {
+      m.setAttribute('content', colorScheme === 'dark' ? '#1A120D' : '#C2461A');
+      m.removeAttribute('media');
     });
-
-    return () => unsubscribe(); // Nettoyage de l'abonnement
-  }, [navigate]);
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-        <Typography sx={{ ml: 2 }}>Vérification de l'authentification...</Typography>
-      </Box>
-    );
-  }
-
-  return isAuthenticated ? children : null; // Rendre les enfants si authentifié, sinon null (redirection gérée par navigate)
-};
+  }, [colorScheme]);
+  return null;
+}
 
 function App() {
-  const [user, setUser] = useState(null); // État pour l'utilisateur connecté
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
-
   return (
-    // Enveloppez toute l'application avec ThemeProvider
-    <ThemeProvider theme={theme}>
-      {/* CssBaseline est utilisé pour fournir une base CSS cohérente et réinitialiser les styles du navigateur */}
-      <CssBaseline />
-      <Router>
-        {/* Modifiez le style de cette Box principale pour qu'elle occupe toute la largeur */}
-        <Box sx={{ flexGrow: 1, width: '100vw' }}> {/* Ajout de width: '100vw' */}
-          <AppBar position="static" elevation={0}> {/* elevation={0} pour supprimer l'ombre (contour visuel) */}
-            <Toolbar sx={{ justifyContent: 'space-between' }}>
-              <Typography
-                variant="h4"
-                component="div"
-                sx={{
-                  fontWeight: 700,
-                  letterSpacing: 1,
-                  color: 'inherit',
-                  flexGrow: 1,
-                  textAlign: 'center',
-                }}
-              >
-                Cuisine Africaine App
-              </Typography>
-              {user && <LogoutButton />}
-            </Toolbar>
-          </AppBar>
-          {/* Supprimez le padding de cette Box si vous voulez qu'elle soit aussi pleine */}
-          <Box sx={{ p: 0 }}> {/* p: 0 ici signifie pas de padding */}
-            <Routes>
-              <Route path="/" element={<LoginPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/inscription" element={<InscriptionPage />} />
-
-              <Route path="/configurer-famille" element={
-                <PrivateRoute>
-                  <ConfigurerFamillePage />
-                </PrivateRoute>
-              } />
-              <Route path="/famille-dashboard/*" element={
-                <PrivateRoute>
-                  <FamilleDashboardLayout />
-                </PrivateRoute>
-              } />
-              <Route path="/famille-dashboard/messages" element={<ChatPage />} />
-            </Routes>
-          </Box>
-        </Box>
-      </Router>
+    <ThemeProvider theme={theme} defaultMode="system">
+      <CssBaseline enableColorScheme />
+      <ThemeColorSync />
+      <SnackbarProvider
+        maxSnack={3}
+        autoHideDuration={3500}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        style={{ borderRadius: 14, fontWeight: 600, fontFamily: 'inherit' }}
+      >
+        <ConfirmProvider>
+          <AuthProvider>
+            <UpdateNotifier />
+            <Router>
+              <Suspense fallback={<SplashScreen />}>
+                <Routes>
+                  <Route path="/" element={<Navigate to="/famille-dashboard" replace />} />
+                  <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
+                  <Route path="/inscription" element={<PublicOnly><InscriptionPage /></PublicOnly>} />
+                  <Route path="/configurer-famille" element={<RequireAuth><ConfigurerFamillePage /></RequireAuth>} />
+                  <Route path="/famille-dashboard/*" element={<RequireAuth><FamilleDashboardLayout /></RequireAuth>} />
+                  <Route path="*" element={<Navigate to="/famille-dashboard" replace />} />
+                </Routes>
+              </Suspense>
+            </Router>
+          </AuthProvider>
+        </ConfirmProvider>
+      </SnackbarProvider>
     </ThemeProvider>
   );
 }

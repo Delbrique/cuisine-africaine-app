@@ -1,358 +1,105 @@
 // src/components/InscriptionPage.js
 import React, { useState } from 'react';
-import { createUserWithEmailAndPassword } from 'firebase/auth'; // Réintroduit l'importation
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Alert, Box, Button, Link as MuiLink, Step, StepLabel, Stepper, TextField, Typography } from '@mui/material';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { auth } from '../firebase/firebase';
 import { createMembre } from '../services/membreService';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
+import { friendlyError } from '../utils';
+import { PhotoPicker } from './ui';
+import AuthLayout from './auth/AuthLayout';
+import PasswordField from './auth/PasswordField';
+import { IdentityFields, RoleHealthFields } from './membres/MemberFields';
+import { emptyMember, toMembre } from './membres/memberModel';
 
-import {
-  Container,
-  TextField,
-  Button,
-  Typography,
-  Box,
-  FormControlLabel,
-  Checkbox,
-  RadioGroup,
-  Radio,
-  FormControl,
-  FormLabel,
-  Paper,
-  Grid,
-  Avatar,
-  Alert,
-  FormGroup,
-  Link as MuiLink, // Pour le lien vers la page de connexion
-} from '@mui/material';
-import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
+const STEPS = ['Compte', 'Profil', 'Famille & santé'];
 
 function InscriptionPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState(''); // Réintroduit le state du mot de passe
-  const [nomComplet, setNomComplet] = useState('');
-  const [age, setAge] = useState('');
-  const [sexe, setSexe] = useState('homme');
-  const [antecedentsMedicaux, setAntecedentsMedicaux] = useState([]);
-  const [autreAntecedent, setAutreAntecedent] = useState('');
-  const [roleFamille, setRoleFamille] = useState([]);
-  const [autreRoleFamille, setAutreRoleFamille] = useState('');
-  const [photoProfil, setPhotoProfil] = useState('');
+  const [step, setStep] = useState(0);
+  const [form, setForm] = useState(emptyMember());
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
+  const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+  const { refreshProfile } = useAuth();
+  const set = (patch) => setForm((f) => ({ ...f, ...patch }));
 
-  const handleAntecedentChange = (e) => {
-    const { value, checked } = e.target;
-
-    if (value === 'RAS' && checked) {
-      setAntecedentsMedicaux(['RAS']);
-      setAutreAntecedent('');
-    } else if (value !== 'RAS' && checked && antecedentsMedicaux.includes('RAS')) {
-      setAntecedentsMedicaux((prev) => prev.filter((a) => a !== 'RAS').concat(value));
-    } else if (value === 'Autre') {
-      setAutreAntecedent(checked ? '' : '');
-      if (checked && antecedentsMedicaux.includes('RAS')) {
-        setAntecedentsMedicaux((prev) => prev.filter((a) => a !== 'RAS'));
-      }
-    } else {
-      if (checked) {
-        setAntecedentsMedicaux((prev) => [...prev, value]);
-      } else {
-        setAntecedentsMedicaux((prev) => prev.filter((a) => a !== value));
-      }
-    }
-  };
-
-  const handleRoleChange = (e) => {
-    const { value, checked } = e.target;
-    if (value === 'Autre') {
-      setAutreRoleFamille(checked ? '' : '');
-    } else {
-      if (checked) {
-        setRoleFamille((prev) => [...prev, value]);
-      } else {
-        setRoleFamille((prev) => prev.filter((r) => r !== value));
-      }
-    }
-  };
-
-  const handlePhotoChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoProfil(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleSubmit = async (e) => {
+  const next = (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
+    if (step < STEPS.length - 1) setStep(step + 1);
+    else submit();
+  };
+
+  const submit = async () => {
+    setBusy(true);
     try {
-      // Utilisation de createUserWithEmailAndPassword
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      let finalAntecedents = antecedentsMedicaux;
-      if (autreAntecedent && !antecedentsMedicaux.includes('RAS')) {
-        finalAntecedents = [...antecedentsMedicaux.filter(a => a !== 'Autre'), `Autre: ${autreAntecedent}`];
-      } else if (antecedentsMedicaux.includes('RAS') && autreAntecedent) {
-        finalAntecedents = [`Autre: ${autreAntecedent}`];
-      }
-
-      const finalRoles = autreRoleFamille ? [...roleFamille, `Autre: ${autreRoleFamille}`] : roleFamille;
-
-      const membreData = {
-        uid: user.uid, // Utiliser l'UID de l'utilisateur authentifié
-        email: user.email,
-        nomComplet,
-        age: parseInt(age),
-        sexe,
-        antecedentsMedicaux: finalAntecedents,
-        roleFamille: finalRoles,
-        photoProfil,
-      };
-      await createMembre(membreData); // Créer le membre dans Firestore avec l'UID de Firebase Auth
-
-      setSuccess('Inscription réussie et connexion ! Vous serez redirigé pour configurer les autres membres de la famille...');
-      setTimeout(() => {
-        navigate('/configurer-famille');
-      }, 2000);
-
+      const { user } = await createUserWithEmailAndPassword(auth, form.email, password);
+      await createMembre({ ...toMembre({ ...form, email: user.email }, { basic: true }), uid: user.uid });
+      await refreshProfile();
+      navigate('/configurer-famille', { replace: true });
     } catch (err) {
-      console.error('Erreur lors de l\'inscription :', err);
-      setError(`Erreur lors de l'inscription: ${err.message || "Vérifiez vos informations et réessayez."}`);
+      console.error("Erreur lors de l'inscription :", err);
+      setError(friendlyError(err, 'Vérifiez vos informations et réessayez.'));
+      if (err.code?.startsWith('auth/')) setStep(0);
+      setBusy(false);
     }
   };
 
   return (
-    <Container maxWidth="sm">
-      <Paper elevation={3} sx={{ padding: 4, mt: 4, borderRadius: 2 }}>
-        <Typography variant="h4" component="h2" gutterBottom align="center">
-          Inscription
-        </Typography>
+    <AuthLayout wide={step > 0}>
+      <Typography variant="h4" component="h1" sx={{ mb: 0.75 }}>Créer votre compte</Typography>
+      <Typography color="text.secondary" sx={{ mb: 3 }}>Trois petites étapes et votre cuisine est prête.</Typography>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {success}
-          </Alert>
-        )}
+      <Stepper activeStep={step} alternativeLabel sx={{ mb: 3.5, '& .MuiStepLabel-label': { fontWeight: 600, fontSize: 13 } }}>
+        {STEPS.map((s) => <Step key={s}><StepLabel>{s}</StepLabel></Step>)}
+      </Stepper>
 
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-          <TextField
-            label="Email"
-            type="email"
-            fullWidth
-            margin="normal"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <TextField // Le champ Mot de passe est réintroduit
-            label="Mot de passe"
-            type="password"
-            fullWidth
-            margin="normal"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <TextField
-            label="Nom Complet"
-            type="text"
-            fullWidth
-            margin="normal"
-            value={nomComplet}
-            onChange={(e) => setNomComplet(e.target.value)}
-            required
-          />
-          <TextField
-            label="Age"
-            type="number"
-            fullWidth
-            margin="normal"
-            value={age}
-            onChange={(e) => setAge(e.target.value)}
-            required
-          />
+      {error && <Alert severity="error" sx={{ mb: 2.5 }}>{error}</Alert>}
 
-          <FormControl component="fieldset" margin="normal" fullWidth>
-            <FormLabel component="legend">Sexe</FormLabel>
-            <RadioGroup row value={sexe} onChange={(e) => setSexe(e.target.value)}>
-              <FormControlLabel value="homme" control={<Radio />} label="Homme" />
-              <FormControlLabel value="femme" control={<Radio />} label="Femme" />
-            </RadioGroup>
-          </FormControl>
-
-          <FormControl component="fieldset" margin="normal" fullWidth>
-            <FormLabel component="legend">Antécédents Médicaux</FormLabel>
-            <Grid container spacing={1}>
-              <Grid xs={6} sm={4}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={antecedentsMedicaux.includes('RAS')}
-                      onChange={handleAntecedentChange}
-                      value="RAS"
-                    />
-                  }
-                  label="RAS (Rien à Signaler)"
-                />
-              </Grid>
-              <Grid xs={6} sm={4}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={antecedentsMedicaux.includes('Diabète')}
-                      onChange={handleAntecedentChange}
-                      value="Diabète"
-                      disabled={antecedentsMedicaux.includes('RAS')}
-                    />
-                  }
-                  label="Diabète"
-                />
-              </Grid>
-              <Grid xs={6} sm={4}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={antecedentsMedicaux.includes('Hypertension')}
-                      onChange={handleAntecedentChange}
-                      value="Hypertension"
-                      disabled={antecedentsMedicaux.includes('RAS')}
-                    />
-                  }
-                  label="Hypertension"
-                />
-              </Grid>
-              <Grid xs={6} sm={4}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={antecedentsMedicaux.includes('Allergie alimentaire')}
-                      onChange={handleAntecedentChange}
-                      value="Allergie alimentaire"
-                      disabled={antecedentsMedicaux.includes('RAS')}
-                    />
-                  }
-                  label="Allergie alimentaire"
-                />
-              </Grid>
-              <Grid xs={12} sm={4}>
-                 <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={autreAntecedent !== ''}
-                      onChange={handleAntecedentChange}
-                      value="Autre"
-                      disabled={antecedentsMedicaux.includes('RAS')}
-                    />
-                  }
-                  label="Autre :"
-                />
-                {autreAntecedent !== '' && !antecedentsMedicaux.includes('RAS') && (
-                  <TextField
-                    size="small"
-                    label="Spécifiez autre"
-                    value={autreAntecedent}
-                    onChange={(e) => setAutreAntecedent(e.target.value)}
-                    fullWidth
-                    sx={{ mt: 1 }}
-                  />
-                )}
-              </Grid>
-            </Grid>
-          </FormControl>
-
-          <FormControl component="fieldset" margin="normal" fullWidth>
-            <FormLabel component="legend">Rôle dans la Famille</FormLabel>
-            <Grid container spacing={1}>
-              <Grid xs={6} sm={4}>
-                <FormControlLabel
-                  control={<Checkbox checked={roleFamille.includes('Mère')} onChange={handleRoleChange} value="Mère" />}
-                  label="Mère"
-                />
-              </Grid>
-              <Grid xs={6} sm={4}>
-                <FormControlLabel
-                  control={<Checkbox checked={roleFamille.includes('Père')} onChange={handleRoleChange} value="Père" />}
-                  label="Père"
-                />
-              </Grid>
-              <Grid xs={6} sm={4}>
-                <FormControlLabel
-                  control={<Checkbox checked={roleFamille.includes('Enfant')} onChange={handleRoleChange} value="Enfant" />}
-                  label="Enfant"
-                />
-              </Grid>
-              <Grid xs={6} sm={4}>
-                <FormControlLabel
-                  control={<Checkbox checked={roleFamille.includes('Grand-parent')} onChange={handleRoleChange} value="Grand-parent" />}
-                  label="Grand-parent"
-                />
-              </Grid>
-              <Grid xs={12} sm={4}>
-                <FormControlLabel
-                  control={<Checkbox checked={autreRoleFamille !== ''} onChange={handleRoleChange} value="Autre" />}
-                  label="Autre :"
-                />
-                {autreRoleFamille !== '' && (
-                  <TextField
-                    size="small"
-                    label="Spécifiez autre rôle"
-                    value={autreRoleFamille}
-                    onChange={(e) => setAutreRoleFamille(e.target.value)}
-                    fullWidth
-                    sx={{ mt: 1 }}
-                  />
-                )}
-              </Grid>
-            </Grid>
-          </FormControl>
-
-          <Box sx={{ my: 2 }}>
-            <FormLabel component="legend" htmlFor="photo-upload">Photo de Profil (facultatif)</FormLabel>
-            <input
-              accept="image/*"
-              style={{ display: 'none' }}
-              id="photo-upload"
-              type="file"
-              onChange={handlePhotoChange}
+      <Box component="form" onSubmit={next} key={step} sx={{ animation: 'fadeUp .3s ease both' }}>
+        {step === 0 && (
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField label="Email" type="email" autoComplete="email" value={form.email} onChange={(e) => set({ email: e.target.value })} required />
+            <PasswordField
+              label="Mot de passe" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)}
+              required inputProps={{ minLength: 6 }} helperText="Au moins 6 caractères"
             />
-            <label htmlFor="photo-upload">
-              <Button variant="outlined" component="span" startIcon={<PhotoCameraIcon />} sx={{ mt: 1 }}>
-                Choisir une photo
-              </Button>
-            </label>
-            {photoProfil && (
-              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-                <Avatar src={photoProfil} alt="Photo de Profil" sx={{ width: 100, height: 100 }} />
-              </Box>
-            )}
           </Box>
+        )}
 
-          <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 3, mb: 2 }}>
-            S'inscrire
+        {step === 1 && (
+          <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'center', sm: 'flex-start' } }}>
+            <PhotoPicker round size={112} value={form.photoProfil} onChange={(v) => set({ photoProfil: v })} label="Photo" />
+            <Box sx={{ flex: 1, width: '100%' }}>
+              <IdentityFields form={form} set={set} showEmail={false} />
+            </Box>
+          </Box>
+        )}
+
+        {step === 2 && <RoleHealthFields form={form} set={set} />}
+
+        <Box sx={{ display: 'flex', gap: 1.5, mt: 4 }}>
+          {step > 0 && (
+            <Button onClick={() => setStep(step - 1)} color="inherit" startIcon={<ArrowBackRoundedIcon />} disabled={busy}>
+              Retour
+            </Button>
+          )}
+          <Button type="submit" variant="contained" size="large" sx={{ flex: 1 }} disabled={busy}
+            endIcon={step < STEPS.length - 1 ? <ArrowForwardRoundedIcon /> : undefined}>
+            {step < STEPS.length - 1 ? 'Continuer' : busy ? 'Création du compte…' : 'Créer mon compte'}
           </Button>
         </Box>
+      </Box>
 
-        <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-          Déjà un compte ?{' '}
-          <MuiLink component={RouterLink} to="/login">
-            Se connecter ici
-          </MuiLink>
-        </Typography>
-      </Paper>
-    </Container>
+      <Typography variant="body2" align="center" color="text.secondary" sx={{ mt: 3.5 }}>
+        Déjà un compte ?{' '}
+        <MuiLink component={RouterLink} to="/login" sx={{ fontWeight: 700 }} underline="hover">Se connecter</MuiLink>
+      </Typography>
+    </AuthLayout>
   );
 }
 

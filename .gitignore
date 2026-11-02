@@ -24,3 +24,6 @@ yarn-error.log*
 
 #evite de partager ma cle d'api sur git
 .env
+
+# cache de déploiement Firebase
+.firebase/

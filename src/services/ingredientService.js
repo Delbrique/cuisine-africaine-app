@@ -8,8 +8,7 @@ import {
   updateDoc,
   deleteDoc,
   getDoc,
-  query, // Pour les requêtes plus complexes (si besoin de filtrer/ordonner)
-  // orderBy, where // À importer si vous utilisez orderBy ou where
+  onSnapshot,
 } from 'firebase/firestore';
 
 const ingredientsCollectionRef = collection(db, 'ingredients');
@@ -61,6 +60,20 @@ const getIngredients = async () => {
     throw e;
   }
 };
+
+/**
+ * Écoute les ingrédients en temps réel : `onData` est rappelé à chaque modification.
+ * @returns {function} Fonction à appeler pour arrêter l'écoute.
+ */
+const listenIngredients = (onData, onError) =>
+  onSnapshot(
+    ingredientsCollectionRef,
+    (snap) => onData(snap.docs.map((d) => ({ ...d.data(), id: d.id }))),
+    (e) => {
+      console.error("Erreur lors de l'écoute des ingrédients : ", e);
+      onError?.(e);
+    }
+  );
 
 /**
  * Récupère un ingrédient spécifique par son ID.
@@ -185,6 +198,7 @@ const deleteIngredient = async (id) => {
 export {
   createIngredient,
   getIngredients,
+  listenIngredients,
   getIngredientById,
   updateIngredient,
   deleteIngredient,

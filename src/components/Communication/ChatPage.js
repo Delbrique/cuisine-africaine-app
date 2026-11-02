@@ -1,407 +1,397 @@
-// 📁 src/components/Communication/ChatPage.js 
-import React, { useEffect, useState, useRef } from 'react';
-import { auth, db } from '../../firebase/firebase';
-import { GroupService } from '../../services/GroupService';
+// 📁 src/components/Communication/ChatPage.js
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { collection, getDocs } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import useSound from 'use-sound';
 import EmojiPicker from 'emoji-picker-react';
+import { useColorScheme } from '@mui/material/styles';
+import {
+  Avatar, Box, Button, IconButton, InputBase, LinearProgress, ListItemIcon, Menu, MenuItem, Popover, Tooltip, Typography, useMediaQuery,
+} from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import SendRoundedIcon from '@mui/icons-material/SendRounded';
+import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import InsertEmoticonRoundedIcon from '@mui/icons-material/InsertEmoticonRounded';
+import MoreVertRoundedIcon from '@mui/icons-material/MoreVertRounded';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import GroupRoundedIcon from '@mui/icons-material/GroupRounded';
+import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
+import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRounded';
+import { enqueueSnackbar } from 'notistack';
+
+import { auth, db } from '../../firebase/firebase';
+import { GroupService } from '../../services/GroupService';
 import sendSound from '../../assets/sounds/send.mp3';
 import receiveSound from '../../assets/sounds/receive.mp3';
-import {
-  Container, Box, TextField, Typography, Paper,
-  List, ListItem, Avatar, IconButton, Button,
-  LinearProgress, Popover, Fade, Menu, MenuItem
-} from '@mui/material';
-import {
-  Send as SendIcon, AttachFile as AttachFileIcon,
-  Edit as EditIcon, Delete as DeleteIcon,
-  InsertEmoticon as InsertEmoticonIcon,
-  MoreVert as MoreVertIcon, ArrowBack as ArrowBackIcon,
-  Close as CloseIcon
-} from '@mui/icons-material';
-import kitchenVideo from '../../assets/videos/kitchen.mp4';
-import { useSearchParams, useNavigate } from 'react-router-dom';
 import CreateGroupModal from '../CreateGroupModal';
-import ListGroupsModal from '../ListGroupsModal';
+import GroupList from '../ListGroupsModal';
 import ManageMembersModal from '../ManageMembersModal';
+import { EmptyState, patternBg, useConfirm } from '../ui';
+import { initials, toDate } from '../../utils';
+import { tint } from '../../theme/theme';
 
-// compresse l'image sélectionnée
-const compressImage = file =>
-  new Promise(resolve => {
+// Compresse l'image sélectionnée (largeur max 1024 px).
+const compressImage = (file) =>
+  new Promise((resolve) => {
     const img = new Image();
     const reader = new FileReader();
-    reader.onload = e => img.src = e.target.result;
+    reader.onload = (e) => { img.src = e.target.result; };
     img.onload = () => {
-      const MAX = 1024;
-      const scale = MAX / img.width;
+      const scale = Math.min(1, 1024 / img.width);
       const canvas = document.createElement('canvas');
-      canvas.width = MAX;
+      canvas.width = img.width * scale;
       canvas.height = img.height * scale;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(blob => {
-        const comp = new File([blob], file.name, { type: file.type });
-        resolve(comp);
-      }, file.type, 0.7);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => resolve(new File([blob], file.name, { type: file.type })), file.type, 0.7);
     };
     reader.readAsDataURL(file);
   });
 
-export default function ChatPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const groupId = searchParams.get('groupId');
+const uploadToCloudinary = async (f) => {
+  const fd = new FormData();
+  fd.append('file', f);
+  fd.append('upload_preset', 'monapp_unsigned');
+  const res = await fetch('https://api.cloudinary.com/v1_1/dnegiuc7h/auto/upload', { method: 'POST', body: fd });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message);
+  return data.secure_url;
+};
 
-  const [currentGroup, setCurrentGroup] = useState(null);
-  const [anchorGroupMeta, setAnchorGroupMeta] = useState(null);
+const isImage = (url) => /\.(jpe?g|png|gif|webp)$/i.test(url.split('?')[0]);
+const dayLabel = (d) => {
+  const today = new Date();
+  const yest = new Date();
+  yest.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) return "Aujourd'hui";
+  if (d.toDateString() === yest.toDateString()) return 'Hier';
+  return d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+};
+
+export default function ChatPage() {
+  const theme = useTheme();
+  const desktop = useMediaQuery(theme.breakpoints.up('md'));
+  const { colorScheme } = useColorScheme();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const groupId = searchParams.get('groupId');
+  const confirm = useConfirm();
+
+  const [groups, setGroups] = useState(null);
+  const [people, setPeople] = useState([]);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [files, setFiles] = useState([]);
-  const [previewUrls, setPreviewUrls] = useState([]);
   const [editId, setEditId] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [anchorEmoji, setAnchorEmoji] = useState(null);
+  const [anchorMeta, setAnchorMeta] = useState(null);
+  const [dialog, setDialog] = useState(''); // 'create' | 'edit' | 'members'
+  const [sending, setSending] = useState(false);
 
   const [playSend] = useSound(sendSound);
   const [playReceive] = useSound(receiveSound);
+  const endRef = useRef(null);
+  const boxRef = useRef(null);
+  const autoScroll = useRef(true);
+  const uid = auth.currentUser?.uid;
 
-  const messagesEndRef = useRef(null);
-  const chatBoxRef = useRef(null);
-  const [autoScroll, setAutoScroll] = useState(true);
+  const currentGroup = groups?.find((g) => g.id === groupId) || null;
 
-  const [openCreate, setOpenCreate] = useState(false);
-  const [openList, setOpenList] = useState(false);
-  const [openManage, setOpenManage] = useState(false);
-
-  // écoute les messages + info du groupe
   useEffect(() => {
-    if (!groupId) {
-      setCurrentGroup(null);
-      setMessages([]);
-      return;
+    getDocs(collection(db, 'membresFamille')).then((s) => setPeople(s.docs.map((d) => ({ id: d.id, ...d.data() })))).catch(() => {});
+    if (!auth.currentUser) {
+      setGroups([]);
+      return undefined;
     }
-    const unsubMsg = GroupService.listenMessages(groupId, snap => {
-      const arr = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    return GroupService.listGroupsParticipant((docs) => setGroups(docs.map((d) => ({ id: d.id, ...d.data() }))));
+  }, []);
+
+  useEffect(() => {
+    setMessages([]);
+    setEditId(null);
+    setInput('');
+    if (!groupId) return undefined;
+    let first = true;
+    return GroupService.listenMessages(groupId, (snap) => {
+      const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setMessages(arr);
       const last = arr[arr.length - 1];
-      if (last && last.senderId !== auth.currentUser.uid) {
+      if (!first && last && last.senderId !== auth.currentUser?.uid) {
         playReceive();
         navigator.vibrate?.(100);
       }
+      first = false;
     });
-
-    const unsubGrp = GroupService.listGroupsParticipant(snap => {
-      const doc = snap.find(g => g.id === groupId);
-      if (doc) {
-        setCurrentGroup({ id: doc.id, ...doc.data() });
-      }
-    });
-
-    return () => {
-      unsubMsg();
-      unsubGrp();
-    };
   }, [groupId, playReceive]);
 
   useEffect(() => {
-    if (autoScroll) {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }
+    if (autoScroll.current) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages]);
 
-  const handleScroll = () => {
-    const el = chatBoxRef.current;
-    if (!el) return;
-    setAutoScroll(el.scrollTop + el.clientHeight >= el.scrollHeight - 50);
-  };
+  const personOf = (msg) => people.find((p) => p.id === msg.senderId || (msg.senderEmail && p.email === msg.senderEmail)) || {};
 
-  const handleFileChange = async e => {
-    const chosen = Array.from(e.target.files);
-    const prs = [];
-    const ufs = [];
-    for (const f of chosen) {
-      const id = uuidv4();
-      if (f.type.startsWith('image/')) {
-        const comp = await compressImage(f);
-        prs.push({ id, url: URL.createObjectURL(comp), type: 'image', name: f.name, file: comp });
-        ufs.push({ id, file: comp });
-      } else {
-        prs.push({ id, url: '', type: 'file', name: f.name, file: f });
-        ufs.push({ id, file: f });
-      }
-    }
-    setPreviewUrls(prev => [...prev, ...prs]);
-    setFiles(prev => [...prev, ...ufs]);
-  };
-
-  const removeFile = id => {
-    setPreviewUrls(prev => prev.filter(p => p.id !== id));
-    setFiles(prev => prev.filter(f => f.id !== id));
-  };
-
-  // upload vers Cloudinary
-  const uploadToCloudinary = async f => {
-    const fd = new FormData();
-    fd.append('file', f);
-    fd.append('upload_preset', 'monapp_unsigned');
-    const res = await fetch('https://api.cloudinary.com/v1_1/dnegiuc7h/auto/upload', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message);
-    return data.secure_url;
+  const handleFileChange = async (e) => {
+    const chosen = Array.from(e.target.files || []);
+    e.target.value = '';
+    const prepared = await Promise.all(
+      chosen.map(async (f) => {
+        const id = uuidv4();
+        if (f.type.startsWith('image/')) {
+          const comp = await compressImage(f);
+          return { id, file: comp, url: URL.createObjectURL(comp), type: 'image', name: f.name };
+        }
+        return { id, file: f, url: '', type: 'file', name: f.name };
+      })
+    );
+    setFiles((prev) => [...prev, ...prepared]);
   };
 
   const sendMessage = async () => {
-    if ((!input.trim() && files.length === 0) || !groupId) return;
-    const urls = [];
-    for (let i = 0; i < files.length; i++) {
-      setUploadProgress((i / files.length) * 100);
-      const u = await uploadToCloudinary(files[i].file);
-      urls.push(u);
-    }
-    setUploadProgress(100);
-
-    if (editId) {
-      await GroupService.updateMessage(groupId, editId, input, urls);
-      setEditId(null);
-    } else {
-      await GroupService.postMessage(groupId, input, urls);
-    }
-
-    setInput('');
-    setFiles([]);
-    setPreviewUrls([]);
-    setUploadProgress(0);
-    playSend();
-  };
-
-  const initiateEdit = msg => {
-    setInput(msg.text);
-    setEditId(msg.id);
-    scrollToBottom();
-  };
-
-  const deleteMessage = async id => {
-    if (window.confirm('Supprimer ce message ?')) {
-      await GroupService.deleteMessage(groupId, id);
+    if ((!input.trim() && files.length === 0) || !groupId || sending) return;
+    setSending(true);
+    try {
+      const urls = [];
+      for (let i = 0; i < files.length; i++) {
+        setUploadProgress(((i + 0.5) / files.length) * 100);
+        urls.push(await uploadToCloudinary(files[i].file));
+      }
+      if (editId) {
+        await GroupService.updateMessage(groupId, editId, input, urls);
+        setEditId(null);
+      } else {
+        await GroupService.postMessage(groupId, input, urls);
+      }
+      setInput('');
+      setFiles([]);
+      autoScroll.current = true;
+      playSend();
+    } catch (err) {
+      enqueueSnackbar(`Envoi impossible : ${err.message}`, { variant: 'error' });
+    } finally {
+      setUploadProgress(0);
+      setSending(false);
     }
   };
 
-  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-
-  const handleEmojiClick = (emojiData) => {
-    setInput(prev => prev + emojiData.emoji);
-    setAnchorEmoji(null);
+  const deleteMessage = async (id) => {
+    if (await confirm({ title: 'Supprimer ce message ?', confirmLabel: 'Supprimer' })) await GroupService.deleteMessage(groupId, id);
   };
 
-  const formatTs = ts => ts?.toDate()?.toLocaleString() || '';
-
-  const openGroupMeta = e => setAnchorGroupMeta(e.currentTarget);
-  const closeGroupMeta = () => setAnchorGroupMeta(null);
-
-  const handleEditGroup = async () => {
-  const newName = window.prompt('Nouveau nom ?', currentGroup.name) || currentGroup.name;
-  const newDesc = window.prompt('Nouvelle description ?', currentGroup.description) || currentGroup.description;
-
-  const fileInput = document.createElement('input');
-  fileInput.type = 'file';
-  fileInput.accept = 'image/*';
-
-  fileInput.onchange = async () => {
-    const photoFile = fileInput.files[0];
-
-    const updates = {
-      name: newName,
-      description: newDesc
-    };
-
-    if (photoFile) {
-      updates.photoFile = photoFile;
-    }
-
-    await GroupService.updateGroup(currentGroup.id, updates);
-    closeGroupMeta();
+  const deleteGroup = async () => {
+    setAnchorMeta(null);
+    if (!(await confirm({ title: `Supprimer « ${currentGroup.name} » ?`, message: 'Tous les messages du groupe seront supprimés.', confirmLabel: 'Supprimer' }))) return;
+    await GroupService.deleteGroup(currentGroup.id);
+    setSearchParams({});
   };
 
-  fileInput.click();
-};
+  // Regroupe les messages par jour.
+  const timeline = useMemo(() => {
+    const out = [];
+    let lastDay = '';
+    messages.forEach((m, i) => {
+      const d = toDate(m.createdAt) || new Date();
+      const key = d.toDateString();
+      if (key !== lastDay) {
+        out.push({ type: 'day', key: `d-${key}`, label: dayLabel(d) });
+        lastDay = key;
+      }
+      const prev = messages[i - 1];
+      out.push({ type: 'msg', key: m.id, msg: m, date: d, grouped: prev && prev.senderId === m.senderId && toDate(prev.createdAt)?.toDateString() === key });
+    });
+    return out;
+  }, [messages]);
 
-
-  const handleDeleteGroup = async () => {
-    if (window.confirm('Supprimer ce groupe et tout son contenu ?')) {
-      await GroupService.deleteGroup(currentGroup.id);
-      setSearchParams({});
-    }
-    closeGroupMeta();
-  };
+  const height = desktop
+    ? '100dvh'
+    : 'calc(100dvh - 60px - env(safe-area-inset-top) - 70px - env(safe-area-inset-bottom))';
+  const showList = desktop || !groupId;
+  const showConv = desktop || Boolean(groupId);
 
   return (
-    <Box sx={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
-      <video
-        autoPlay muted loop src={kitchenVideo}
-        style={{
-          position: 'fixed', top: 0, left: 0,
-          width: '100%', height: '100%',
-          objectFit: 'cover', zIndex: -1
-        }}
-      />
-
-      <Container maxWidth="md" sx={{ pt: 2, pb: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <Button
-          variant="contained" color="secondary"
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/famille-dashboard')}
-          sx={{ mb: 2 }}
-        >
-          Retour
-        </Button>
-
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-          <Box>
-            <Button onClick={() => setOpenCreate(true)}>Créer groupe</Button>
-            <Button onClick={() => setOpenList(true)}>Mes groupes</Button>
-            {groupId && <Button onClick={() => setOpenManage(true)}>Membres</Button>}
+    <Box sx={{ display: 'flex', height, bgcolor: 'background.paper' }}>
+      {showList && (
+        <Box sx={{ width: { xs: '100%', md: 340 }, flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: { md: '1px solid' }, borderColor: { md: 'divider' } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2.5, pt: { xs: 2, md: 4 }, pb: 2 }}>
+            <Typography variant="h5" sx={{ flex: 1 }}>Messages</Typography>
+            <Tooltip title="Nouveau groupe">
+              <IconButton onClick={() => setDialog('create')} sx={{ bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' } }}><AddRoundedIcon /></IconButton>
+            </Tooltip>
           </Box>
-
-          {currentGroup && (
-            <Box display="flex" alignItems="center">
-              <Avatar src={currentGroup.photoURL} sx={{ mr: 1 }} />
-              <Typography variant="h6" sx={{ color: '#fff' }}>{currentGroup.name}</Typography>
-              <IconButton onClick={openGroupMeta} sx={{ color: '#fff' }}><MoreVertIcon /></IconButton>
-              <Menu anchorEl={anchorGroupMeta} open={Boolean(anchorGroupMeta)} onClose={closeGroupMeta}>
-                <MenuItem onClick={handleEditGroup}>Modifier infos</MenuItem>
-                <MenuItem onClick={handleDeleteGroup}>Supprimer groupe</MenuItem>
-              </Menu>
-            </Box>
-          )}
+          <Box sx={{ flex: 1, overflowY: 'auto', px: 1.25, pb: 2 }}>
+            {groups === null ? (
+              <Typography color="text.secondary" sx={{ p: 2 }}>Chargement…</Typography>
+            ) : groups.length === 0 ? (
+              <Box sx={{ p: 1.5 }}>
+                <EmptyState icon={<ForumRoundedIcon />} title="Aucun groupe" description="Créez un groupe pour discuter des repas en famille."
+                  action={<Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setDialog('create')}>Créer un groupe</Button>} />
+              </Box>
+            ) : (
+              <GroupList groups={groups} selectedId={groupId} onSelect={(id) => setSearchParams({ groupId: id })} />
+            )}
+          </Box>
         </Box>
+      )}
 
-        {currentGroup && (
-          <Box sx={{ bgcolor: 'rgba(0,0,0,0.6)', color: '#fff', p: 1, borderRadius: 1, mb: 2 }}>
-            <Typography>
-              <strong>Créé par :</strong> {currentGroup.creatorEmail}<br />
-              <strong>Le :</strong> {new Date(currentGroup.createdAt?.toDate()).toLocaleString()}<br />
-              <strong>Description :</strong> {currentGroup.description}
-            </Typography>
-          </Box>
-        )}
+      {showConv && (
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+          {!currentGroup ? (
+            <Box sx={{ flex: 1, display: 'grid', placeItems: 'center', p: 4, bgcolor: 'sand.main', backgroundImage: patternBg('#C2461A', 0.06) }}>
+              <Box sx={{ textAlign: 'center', maxWidth: 360 }}>
+                <Box component="img" src={`${process.env.PUBLIC_URL}/logo.svg`} alt="" sx={{ width: 80, mb: 2, opacity: 0.9 }} />
+                <Typography variant="h5" sx={{ mb: 1 }}>{groupId ? 'Chargement du groupe…' : 'La table familiale'}</Typography>
+                <Typography color="text.secondary">Choisissez un groupe pour discuter des menus, partager une photo de plat ou organiser le marché.</Typography>
+              </Box>
+            </Box>
+          ) : (
+            <>
+              {/* En-tête de conversation */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: { xs: 1, md: 2.5 }, py: 1.25, borderBottom: '1px solid', borderColor: 'divider' }}>
+                {!desktop && <IconButton onClick={() => setSearchParams({})} aria-label="Retour"><ArrowBackRoundedIcon /></IconButton>}
+                <Avatar src={currentGroup.photoURL || undefined} sx={{ bgcolor: 'primary.main' }}>{initials(currentGroup.name)}</Avatar>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography sx={{ fontWeight: 750 }} noWrap>{currentGroup.name}</Typography>
+                  <Typography variant="caption" color="text.secondary" noWrap component="div">
+                    {currentGroup.description || `Créé par ${currentGroup.creatorEmail}`}
+                  </Typography>
+                </Box>
+                <Tooltip title="Participants"><IconButton onClick={() => setDialog('members')}><GroupRoundedIcon /></IconButton></Tooltip>
+                <IconButton onClick={(e) => setAnchorMeta(e.currentTarget)}><MoreVertRoundedIcon /></IconButton>
+                <Menu anchorEl={anchorMeta} open={Boolean(anchorMeta)} onClose={() => setAnchorMeta(null)}>
+                  <MenuItem onClick={() => { setAnchorMeta(null); setDialog('edit'); }}><ListItemIcon><EditRoundedIcon fontSize="small" /></ListItemIcon>Modifier le groupe</MenuItem>
+                  <MenuItem onClick={deleteGroup} sx={{ color: 'error.main' }}><ListItemIcon><DeleteOutlineRoundedIcon fontSize="small" color="error" /></ListItemIcon>Supprimer le groupe</MenuItem>
+                </Menu>
+              </Box>
 
-        <Paper
-          ref={chatBoxRef}
-          onScroll={handleScroll}
-          sx={{
-            flexGrow: 1, overflowY: 'auto', p: 2, mb: 2,
-            borderRadius: 2, bgcolor: 'rgba(255,255,255,0.9)'
-          }}
-        >
-          <List>
-            {messages.map(msg => {
-              const mine = msg.senderId === auth.currentUser.uid;
-              return (
-                <Fade in key={msg.id}>
-                  <ListItem sx={{
-                    flexDirection: 'column',
-                    alignItems: mine ? 'flex-end' : 'flex-start',
-                    mb: 1
-                  }}>
-                    <Box sx={{
-                      display: 'flex', alignItems: 'center',
-                      bgcolor: mine ? '#d7f0ff' : '#f9f9f9',
-                      borderRadius: 2, px: 2, py: 1,
-                      maxWidth: '75%'
-                    }}>
-                      <Avatar sx={{ mr: 1 }}>{msg.senderEmail.charAt(0)}</Avatar>
-                      <Box>
-                        <Typography variant="caption">
-                          {msg.senderEmail} — {formatTs(msg.createdAt)}
+              {/* Messages */}
+              <Box
+                ref={boxRef}
+                onScroll={() => {
+                  const el = boxRef.current;
+                  autoScroll.current = el.scrollTop + el.clientHeight >= el.scrollHeight - 60;
+                }}
+                sx={{ flex: 1, overflowY: 'auto', px: { xs: 1.5, md: 4 }, py: 2, bgcolor: 'sand.main', backgroundImage: patternBg('#C2461A', 0.05) }}
+              >
+                {messages.length === 0 && (
+                  <Typography color="text.secondary" sx={{ textAlign: 'center', mt: 6 }}>Aucun message. Lancez la conversation 👋🏾</Typography>
+                )}
+                {timeline.map((item) => {
+                  if (item.type === 'day') {
+                    return (
+                      <Box key={item.key} sx={{ textAlign: 'center', my: 2 }}>
+                        <Typography component="span" variant="caption" sx={{ px: 1.5, py: 0.5, borderRadius: 99, bgcolor: 'background.paper', fontWeight: 700, color: 'text.secondary', textTransform: 'capitalize' }}>
+                          {item.label}
                         </Typography>
-                        {msg.text && <Typography variant="body2">{msg.text}</Typography>}
+                      </Box>
+                    );
+                  }
+                  const { msg, date, grouped } = item;
+                  const mine = msg.senderId === uid;
+                  const person = personOf(msg);
+                  const name = person.nomComplet || msg.senderEmail || '';
+                  return (
+                    <Box key={item.key} sx={{ display: 'flex', gap: 1, justifyContent: mine ? 'flex-end' : 'flex-start', mt: grouped ? 0.5 : 1.5, '&:hover .msg-tools': { opacity: 1 } }}>
+                      {!mine && (
+                        <Avatar src={person.photoProfil || undefined} sx={{ width: 32, height: 32, fontSize: 13, bgcolor: 'secondary.main', visibility: grouped ? 'hidden' : 'visible' }}>{initials(name)}</Avatar>
+                      )}
+                      {mine && (
+                        <Box className="msg-tools" sx={{ display: 'flex', alignItems: 'center', opacity: { xs: 1, md: 0 }, transition: 'opacity .15s' }}>
+                          <IconButton size="small" onClick={() => { setInput(msg.text || ''); setEditId(msg.id); }}><EditRoundedIcon sx={{ fontSize: 16 }} /></IconButton>
+                          <IconButton size="small" onClick={() => deleteMessage(msg.id)}><DeleteOutlineRoundedIcon sx={{ fontSize: 16 }} /></IconButton>
+                        </Box>
+                      )}
+                      <Box
+                        sx={{
+                          maxWidth: { xs: '80%', md: '65%' }, px: 1.75, py: 1, borderRadius: 4,
+                          borderTopRightRadius: mine && !grouped ? 6 : undefined, borderTopLeftRadius: !mine && !grouped ? 6 : undefined,
+                          bgcolor: mine ? 'primary.main' : 'background.paper', color: mine ? 'primary.contrastText' : 'text.primary',
+                          boxShadow: '0 2px 6px rgba(31,20,16,.06)',
+                        }}
+                      >
+                        {!mine && !grouped && <Typography variant="caption" sx={{ fontWeight: 800, color: 'secondary.main', display: 'block' }}>{name}</Typography>}
                         {msg.fileUrls?.map((url, i) =>
-                          /\.(jpe?g|png|gif|webp)$/i.test(url) ? (
-                            <Box key={i} mt={1}>
-                              <img src={url} alt="preview" style={{ maxWidth: '100%', borderRadius: 8 }} />
+                          isImage(url) ? (
+                            <Box key={i} component="a" href={url} target="_blank" rel="noreferrer" sx={{ display: 'block', my: 0.5 }}>
+                              <Box component="img" src={url} alt="" sx={{ maxWidth: '100%', maxHeight: 320, borderRadius: 3, display: 'block' }} />
                             </Box>
                           ) : (
-                            <Typography mt={1} key={i}>
-                              📎 <a href={url} target="_blank" rel="noreferrer">Fichier {i + 1}</a>
-                            </Typography>
+                            <Box key={i} component="a" href={url} target="_blank" rel="noreferrer"
+                              sx={{ display: 'flex', alignItems: 'center', gap: 1, my: 0.5, p: 1, borderRadius: 2, color: 'inherit', textDecoration: 'none', bgcolor: mine ? 'rgba(255,255,255,.15)' : 'sand.main' }}>
+                              <InsertDriveFileRoundedIcon fontSize="small" /> <Typography variant="body2" sx={{ fontWeight: 650 }}>Fichier {i + 1}</Typography>
+                            </Box>
                           )
                         )}
-                        {mine && (
-                          <Box display="flex" justifyContent="flex-end" mt={1}>
-                            <IconButton size="small" onClick={() => initiateEdit(msg)}>
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" onClick={() => deleteMessage(msg.id)}>
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </Box>
-                        )}
+                        {msg.text && <Typography sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 15 }}>{msg.text}</Typography>}
+                        <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', opacity: 0.65, fontSize: 11 }}>
+                          {date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        </Typography>
                       </Box>
                     </Box>
-                  </ListItem>
-                </Fade>
-              );
-            })}
-            <div ref={messagesEndRef} />
-          </List>
-        </Paper>
+                  );
+                })}
+                <div ref={endRef} />
+              </Box>
 
-        {previewUrls.length > 0 && (
-          <Box mb={2}>
-            <Typography variant="subtitle2">Aperçu :</Typography>
-            <Box display="flex" gap={2} flexWrap="wrap">
-              {previewUrls.map(p => (
-                <Box key={p.id} position="relative">
-                  {p.type === 'image' ? (
-                    <img src={p.url} alt="preview" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 6 }} />
-                  ) : (
-                    <Typography fontSize="0.8rem">📄 {p.name}</Typography>
-                  )}
-                  <IconButton size="small" sx={{ position: 'absolute', top: -5, right: -5, bgcolor: '#fff' }} onClick={() => removeFile(p.id)}>
-                    <CloseIcon fontSize="small" />
+              {/* Saisie */}
+              <Box sx={{ borderTop: '1px solid', borderColor: 'divider', p: 1.25 }}>
+                {uploadProgress > 0 && <LinearProgress variant="determinate" value={uploadProgress} sx={{ mb: 1, height: 4 }} />}
+                {editId && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.75, mb: 1, borderRadius: 3, bgcolor: tint('primary', 0.08) }}>
+                    <EditRoundedIcon fontSize="small" color="primary" />
+                    <Typography variant="body2" sx={{ flex: 1, fontWeight: 650 }}>Modification du message</Typography>
+                    <IconButton size="small" onClick={() => { setEditId(null); setInput(''); }}><CloseRoundedIcon fontSize="small" /></IconButton>
+                  </Box>
+                )}
+                {files.length > 0 && (
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+                    {files.map((p) => (
+                      <Box key={p.id} sx={{ position: 'relative' }}>
+                        {p.type === 'image' ? (
+                          <Box component="img" src={p.url} alt="" sx={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 2.5, display: 'block' }} />
+                        ) : (
+                          <Box sx={{ width: 64, height: 64, borderRadius: 2.5, bgcolor: 'sand.main', display: 'grid', placeItems: 'center', p: 0.5 }}>
+                            <Typography variant="caption" sx={{ fontSize: 10, wordBreak: 'break-all', lineHeight: 1.1 }}>{p.name}</Typography>
+                          </Box>
+                        )}
+                        <IconButton size="small" onClick={() => setFiles((f) => f.filter((x) => x.id !== p.id))}
+                          sx={{ position: 'absolute', top: -8, right: -8, width: 22, height: 22, bgcolor: 'background.paper', boxShadow: 2, '&:hover': { bgcolor: 'background.paper' } }}>
+                          <CloseRoundedIcon sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+                <Box component="form" onSubmit={(e) => { e.preventDefault(); sendMessage(); }} sx={{ display: 'flex', alignItems: 'flex-end', gap: 0.75 }}>
+                  <input type="file" id="chat-file-upload" hidden multiple onChange={handleFileChange} />
+                  <Tooltip title="Joindre un fichier"><IconButton component="label" htmlFor="chat-file-upload"><AttachFileRoundedIcon /></IconButton></Tooltip>
+                  <IconButton onClick={(e) => setAnchorEmoji(e.currentTarget)} sx={{ display: { xs: 'none', sm: 'inline-flex' } }}><InsertEmoticonRoundedIcon /></IconButton>
+                  <InputBase
+                    multiline maxRows={4} fullWidth value={input} onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                    placeholder={editId ? 'Modifier le message…' : 'Écrire un message…'}
+                    sx={{ px: 2, py: 1.1, borderRadius: 4, bgcolor: 'sand.main', fontSize: 15 }}
+                  />
+                  <IconButton type="submit" disabled={sending || (!input.trim() && !files.length)}
+                    sx={{ width: 44, height: 44, bgcolor: 'primary.main', color: 'primary.contrastText', '&:hover': { bgcolor: 'primary.dark' }, '&.Mui-disabled': { bgcolor: 'divider' } }}>
+                    <SendRoundedIcon fontSize="small" />
                   </IconButton>
                 </Box>
-              ))}
-            </Box>
-          </Box>
-        )}
-
-        <Box display="flex" alignItems="center" gap={1} bgcolor="white" p={1} borderRadius={2}>
-          <TextField
-            fullWidth
-            label={editId ? 'Modifier message' : 'Votre message'}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && sendMessage()}
-          />
-          <input type="file" id="file-upload" hidden multiple onChange={handleFileChange} />
-          <label htmlFor="file-upload">
-            <IconButton component="span"><AttachFileIcon /></IconButton>
-          </label>
-          <IconButton onClick={e => setAnchorEmoji(e.currentTarget)}>
-            <InsertEmoticonIcon />
-          </IconButton>
-          <IconButton color="primary" onClick={sendMessage}><SendIcon /></IconButton>
+              </Box>
+            </>
+          )}
         </Box>
+      )}
 
-        {uploadProgress > 0 && uploadProgress < 100 && (
-          <Box mt={2}><LinearProgress variant="determinate" value={uploadProgress} /></Box>
-        )}
+      <Popover open={Boolean(anchorEmoji)} anchorEl={anchorEmoji} onClose={() => setAnchorEmoji(null)} anchorOrigin={{ vertical: 'top', horizontal: 'left' }} transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}>
+        <EmojiPicker theme={colorScheme === 'dark' ? 'dark' : 'light'} onEmojiClick={(d) => { setInput((p) => p + d.emoji); setAnchorEmoji(null); }} />
+      </Popover>
 
-        <Popover
-          open={Boolean(anchorEmoji)}
-          anchorEl={anchorEmoji}
-          onClose={() => setAnchorEmoji(null)}
-          anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
-        >
-          <EmojiPicker onEmojiClick={handleEmojiClick} />
-        </Popover>
-
-        <CreateGroupModal open={openCreate} onClose={() => setOpenCreate(false)} onCreated={id => setSearchParams({ groupId: id })} />
-        <ListGroupsModal open={openList} onClose={() => setOpenList(false)} onSelect={id => { setSearchParams({ groupId: id }); setOpenList(false); }} />
-        <ManageMembersModal open={openManage} onClose={() => setOpenManage(false)} groupId={groupId} />
-
-      </Container>
+      <CreateGroupModal open={dialog === 'create'} onClose={() => setDialog('')} onCreated={(id) => setSearchParams({ groupId: id })} />
+      <CreateGroupModal open={dialog === 'edit'} group={currentGroup} onClose={() => setDialog('')} />
+      <ManageMembersModal open={dialog === 'members'} onClose={() => setDialog('')} groupId={groupId} />
     </Box>
   );
 }

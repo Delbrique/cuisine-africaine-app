@@ -1,124 +1,76 @@
 // src/components/LoginPage.js
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Alert, Box, Button, Divider, Link as MuiLink, TextField, Typography } from '@mui/material';
+import GoogleIcon from '@mui/icons-material/Google';
 import { auth } from '../firebase/firebase';
-import { useNavigate, Link as RouterLink } from 'react-router-dom'
-
-import {
-  Container,
-  TextField,
-  Button,
-  Typography,
-  Box,
-  Paper,
-  Alert,
-  Link as MuiLink, // Renommer pour éviter le conflit avec Link de react-router-dom
-} from '@mui/material';
-import GoogleIcon from '@mui/icons-material/Google'; // Icône Google
+import { friendlyError } from '../utils';
+import AuthLayout from './auth/AuthLayout';
+import PasswordField from './auth/PasswordField';
 
 function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
+  const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const next = location.state?.from?.pathname || '/famille-dashboard';
 
-  const handleEmailLogin = async (e) => {
+  const run = async (fn) => {
+    setError('');
+    setBusy(true);
+    try {
+      await fn();
+      navigate(next, { replace: true });
+    } catch (err) {
+      console.error('Erreur de connexion :', err);
+      setError(friendlyError(err));
+      setBusy(false);
+    }
+  };
+
+  const handleEmailLogin = (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      setSuccess('Connexion réussie ! Redirection vers le tableau de bord...');
-      setTimeout(() => {
-        navigate('/famille-dashboard/membres'); // Rediriger vers la page des membres après connexion
-      }, 1500);
-    } catch (err) {
-      console.error('Erreur de connexion par email :', err);
-      setError(`Erreur de connexion: ${err.message}`);
-    }
+    run(() => signInWithEmailAndPassword(auth, email, password));
   };
 
-  const handleGoogleLogin = async () => {
-    setError('');
-    setSuccess('');
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
-      setSuccess('Connexion Google réussie ! Redirection vers le tableau de bord...');
-      setTimeout(() => {
-        navigate('/famille-dashboard/membres'); // Rediriger vers la page des membres après connexion
-      }, 1500);
-    } catch (err) {
-      console.error('Erreur de connexion Google :', err);
-      setError(`Erreur de connexion Google: ${err.message}`);
-    }
-  };
+  const handleGoogleLogin = () => run(() => signInWithPopup(auth, new GoogleAuthProvider()));
 
   return (
-    <Container maxWidth="xs">
-      <Paper elevation={3} sx={{ padding: 4, mt: 8, borderRadius: 2 }}>
-        <Typography variant="h4" component="h2" gutterBottom align="center">
-          Connexion
-        </Typography>
+    <AuthLayout>
+      <Typography variant="h4" component="h1" sx={{ mb: 0.75 }}>Bon retour 👋🏾</Typography>
+      <Typography color="text.secondary" sx={{ mb: 3.5 }}>
+        Connectez-vous pour retrouver le carnet de cuisine de votre famille.
+      </Typography>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {success}
-          </Alert>
-        )}
+      {error && <Alert severity="error" sx={{ mb: 2.5 }}>{error}</Alert>}
 
-        <Box component="form" onSubmit={handleEmailLogin} sx={{ mt: 2 }}>
-          <TextField
-            label="Email"
-            type="email"
-            fullWidth
-            margin="normal"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-          <TextField
-            label="Mot de passe"
-            type="password"
-            fullWidth
-            margin="normal"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-          <Button type="submit" variant="contained" color="primary" fullWidth sx={{ mt: 3, mb: 1 }}>
-            Se connecter
-          </Button>
-          <Typography variant="body2" align="center" sx={{ my: 2 }}>
-            OU
-          </Typography>
-          <Button
-            variant="outlined"
-            color="secondary"
-            fullWidth
-            startIcon={<GoogleIcon />}
-            onClick={handleGoogleLogin}
-            sx={{ mb: 2 }}
-          >
-            Se connecter avec Google
-          </Button>
-        </Box>
+      <Button
+        variant="outlined" fullWidth size="large" color="inherit" startIcon={<GoogleIcon />}
+        onClick={handleGoogleLogin} disabled={busy}
+      >
+        Continuer avec Google
+      </Button>
 
-        <Typography variant="body2" align="center" sx={{ mt: 2 }}>
-          Pas encore de compte ?{' '}
-         <MuiLink component={RouterLink} to="/inscription">
-            S'inscrire ici
-          </MuiLink>
-        </Typography>
-      </Paper>
-    </Container>
+      <Divider sx={{ my: 3, color: 'text.secondary', fontSize: 13, fontWeight: 600 }}>ou avec votre email</Divider>
+
+      <Box component="form" onSubmit={handleEmailLogin} sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <TextField label="Email" type="email" autoComplete="email" fullWidth value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <PasswordField label="Mot de passe" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <Button type="submit" variant="contained" size="large" fullWidth disabled={busy} sx={{ mt: 1 }}>
+          {busy ? 'Connexion…' : 'Se connecter'}
+        </Button>
+      </Box>
+
+      <Typography variant="body2" align="center" color="text.secondary" sx={{ mt: 3.5 }}>
+        Pas encore de compte ?{' '}
+        <MuiLink component={RouterLink} to="/inscription" sx={{ fontWeight: 700 }} underline="hover">
+          Créer un compte
+        </MuiLink>
+      </Typography>
+    </AuthLayout>
   );
 }
 

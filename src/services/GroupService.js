@@ -83,6 +83,11 @@ export const GroupService = {
     const fileUrls = [];
 
     for (const file of fileList) {
+      // URL déjà téléversée par l'appelant : on l'enregistre telle quelle.
+      if (typeof file === 'string') {
+        fileUrls.push(file);
+        continue;
+      }
       try {
         const url = await uploadToCloudinary(file);
         fileUrls.push(url);
@@ -118,6 +123,10 @@ export const GroupService = {
     const fileUrls = [];
 
     for (const file of fileList) {
+      if (typeof file === 'string') {
+        fileUrls.push(file);
+        continue;
+      }
       try {
         const url = await uploadToCloudinary(file);
         fileUrls.push(url);
