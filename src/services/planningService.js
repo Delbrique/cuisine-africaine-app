@@ -8,7 +8,6 @@ import {
   updateDoc,
   deleteDoc,
   query,
-  where,
   limit,
   orderBy,
   serverTimestamp, // Pour les dates de création automatiques

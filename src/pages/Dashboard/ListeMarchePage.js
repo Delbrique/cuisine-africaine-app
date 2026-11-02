@@ -1,448 +1,382 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Typography,
-  Box,
-  Paper,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemSecondaryAction,
-  IconButton,
-  Button,
-  Divider,
-  Checkbox,
-  FormControlLabel,
-  Alert,
-  CircularProgress
+  Box, Button, ButtonBase, Card, Checkbox, CircularProgress, IconButton, LinearProgress, ListItemIcon, ListItemText, Menu, MenuItem,
+  Tooltip, Typography,
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ClearAllIcon from '@mui/icons-material/ClearAll';
-import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
-import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import ShoppingBasketRoundedIcon from '@mui/icons-material/ShoppingBasketRounded';
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
+import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded';
+import EmailRoundedIcon from '@mui/icons-material/EmailRounded';
+import IosShareRoundedIcon from '@mui/icons-material/IosShareRounded';
+import WhatsAppIcon from '@mui/icons-material/WhatsApp';
+import DeleteSweepRoundedIcon from '@mui/icons-material/DeleteSweepRounded';
+import MoreHorizRoundedIcon from '@mui/icons-material/MoreHorizRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import RadioButtonUncheckedRoundedIcon from '@mui/icons-material/RadioButtonUncheckedRounded';
 import jsPDF from 'jspdf';
-import EmailIcon from '@mui/icons-material/Email';
+import { enqueueSnackbar } from 'notistack';
 
 import { updateIngredientStock, getIngredientById, INGREDIENT_STATUS, getIngredients } from '../../services/ingredientService';
 import { getPlats } from '../../services/platService';
 import { getMostRecentPlanning } from '../../services/planningService';
 import { getMembres } from '../../services/membreService';
+import { EmptyState, PageHeader, patternBg, useConfirm } from '../../components/ui';
+import { formatFcfa, formatNumber, friendlyError } from '../../utils';
+import { tint } from '../../theme/theme';
 
-// Fonction utilitaire pour convertir un Blob en Base64
-const blobToBase64 = (blob) => {
-  return new Promise((resolve, reject) => {
+const blobToBase64 = (blob) =>
+  new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => resolve(reader.result);
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+
+const store = (list) => localStorage.setItem('shoppingList', JSON.stringify(list));
+const today = () => new Date().toLocaleDateString('fr-FR').replace(/\//g, '-');
+
+const aggregateIngredients = (meals, plats, stock) => {
+  const agg = {};
+  meals.forEach(({ platId }) => {
+    const plat = plats.find((p) => p.id === platId);
+    (plat?.ingredientsNecessaires || []).forEach((ing) => {
+      const q = parseFloat(ing.quantite) || 0;
+      if (agg[ing.ingredientId]) agg[ing.ingredientId].quantite += q;
+      else {
+        const s = stock.find((x) => x.id === ing.ingredientId);
+        agg[ing.ingredientId] = {
+          ingredientId: ing.ingredientId, nom: ing.nom, quantite: q, uniteMesure: ing.uniteMesure,
+          prixUnitaire: parseFloat(s?.prix) || 0, checked: false,
+        };
+      }
+    });
+  });
+  return Object.values(agg);
 };
+
+function Item({ item, cost, onToggle, onRemove }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, pl: 0.5, pr: 1, borderRadius: 3, transition: 'background .15s', '&:hover': { bgcolor: 'sand.main' }, '&:hover .rm': { opacity: 1 } }}>
+      <Checkbox
+        checked={Boolean(item.checked)} onChange={onToggle}
+        icon={<RadioButtonUncheckedRoundedIcon />} checkedIcon={<CheckCircleRoundedIcon />} color="secondary"
+      />
+      <ButtonBase onClick={onToggle} sx={{ flex: 1, minWidth: 0, justifyContent: 'flex-start', textAlign: 'left', py: 1, borderRadius: 2 }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 650, textDecoration: item.checked ? 'line-through' : 'none', color: item.checked ? 'text.secondary' : 'text.primary' }} noWrap>
+            {item.nom}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">{formatNumber(item.quantite)} {item.uniteMesure}</Typography>
+        </Box>
+      </ButtonBase>
+      <Box sx={{ textAlign: 'right' }}>
+        <Typography sx={{ fontWeight: 700, whiteSpace: 'nowrap', color: item.checked ? 'text.secondary' : 'text.primary' }}>
+          {cost.unit === null ? 'Prix ?' : formatFcfa(cost.total)}
+        </Typography>
+        {cost.unit !== null && (
+          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>{formatFcfa(cost.unit)} / {item.uniteMesure || 'unité'}</Typography>
+        )}
+      </Box>
+      <Tooltip title="Retirer de la liste">
+        <IconButton className="rm" size="small" onClick={onRemove} sx={{ opacity: { xs: 1, md: 0 } }}><CloseRoundedIcon fontSize="small" /></IconButton>
+      </Tooltip>
+    </Box>
+  );
+}
 
 function ListeMarchePage() {
   const [shoppingList, setShoppingList] = useState([]);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [allPlats, setAllPlats] = useState([]);
-  const [allIngredientsFromStock, setAllIngredientsFromStock] = useState([]);
-  const [membresFamille, setMembresFamille] = useState([]);
-  const [loading, setLoading] = useState(false); // État de chargement pour les opérations
+  const [stock, setStock] = useState([]);
+  const [membres, setMembres] = useState([]);
+  const [busy, setBusy] = useState('');
+  const [menu, setMenu] = useState(null);
+  const confirm = useConfirm();
 
-  // Fonction pour récupérer toutes les données nécessaires
   const fetchData = async () => {
     try {
-      const platsData = await getPlats();
-      setAllPlats(platsData);
-
-      const ingredientsData = await getIngredients();
-      setAllIngredientsFromStock(ingredientsData);
-
-      const membresData = await getMembres();
-      setMembresFamille(membresData);
+      const [p, s, m] = await Promise.all([getPlats(), getIngredients(), getMembres()]);
+      setAllPlats(p);
+      setStock(s);
+      setMembres(m);
+      return { plats: p, stock: s };
     } catch (err) {
-      console.error('Erreur lors du chargement des données :', err);
-      setError('Erreur lors du chargement des plats, ingrédients ou membres pour la liste de marché.');
+      enqueueSnackbar('Erreur lors du chargement des plats, ingrédients ou membres.', { variant: 'error' });
+      return { plats: allPlats, stock };
     }
   };
-
-  const aggregateIngredients = useCallback((currentPlannedMeals, availablePlats, availableIngredients) => {
-    const aggregated = {};
-
-    currentPlannedMeals.forEach(mealEntry => {
-      const fullPlat = availablePlats.find(plat => plat.id === mealEntry.platId);
-
-      if (fullPlat && fullPlat.ingredientsNecessaires) {
-        fullPlat.ingredientsNecessaires.forEach(platIngredient => {
-          const stockIngredient = availableIngredients.find(ing => ing.id === platIngredient.ingredientId);
-
-          const ingredientId = platIngredient.ingredientId;
-          const nom = platIngredient.nom;
-          const quantite = parseFloat(platIngredient.quantite) || 0;
-          const uniteMesure = platIngredient.uniteMesure;
-          const prixUnitaire = parseFloat(stockIngredient?.prix) || 0;
-
-          if (aggregated[ingredientId]) {
-            aggregated[ingredientId].quantite += quantite;
-          } else {
-            aggregated[ingredientId] = {
-              ingredientId,
-              nom,
-              quantite,
-              uniteMesure,
-              prixUnitaire,
-              checked: false,
-            };
-          }
-        });
-      }
-    });
-    return Object.values(aggregated);
-  }, []);
 
   useEffect(() => {
-    const storedList = JSON.parse(localStorage.getItem('shoppingList')) || [];
-    const parsedStoredList = storedList.map(item => ({
-      ...item,
-      quantite: parseFloat(item.quantite) || 0,
-      prixUnitaire: parseFloat(item.prixUnitaire) || 0,
-    }));
-    setShoppingList(parsedStoredList);
+    const stored = JSON.parse(localStorage.getItem('shoppingList')) || [];
+    setShoppingList(stored.map((i) => ({ ...i, quantite: parseFloat(i.quantite) || 0, prixUnitaire: parseFloat(i.prixUnitaire) || 0 })));
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleGenerateShoppingList = async () => {
-    setError('');
-    setSuccess('');
-    setLoading(true);
+  const update = (list) => { setShoppingList(list); store(list); };
 
+  const handleGenerate = async () => {
+    setBusy('gen');
     try {
-      if (allPlats.length === 0 || allIngredientsFromStock.length === 0) {
-        await fetchData();
-      }
-
-      const recentPlanning = await getMostRecentPlanning();
-      let currentPlannedMeals = [];
-
-      if (recentPlanning && recentPlanning.planning) {
-        Object.keys(recentPlanning.planning).forEach(day => {
-          Object.keys(recentPlanning.planning[day]).forEach(mealType => {
-            const meal = recentPlanning.planning[day][mealType];
-            if (meal && meal.platId) {
-              currentPlannedMeals.push({ platId: meal.platId });
-            }
-          });
-        });
-      }
-
-      if (currentPlannedMeals.length === 0) {
-        setError("Aucun plat n'est planifié pour la semaine. Veuillez remplir votre planning.");
-        setSuccess('');
+      let plats = allPlats;
+      let stk = stock;
+      if (!plats.length || !stk.length) ({ plats, stock: stk } = await fetchData());
+      const recent = await getMostRecentPlanning();
+      const meals = [];
+      Object.values(recent?.planning || {}).forEach((d) => Object.values(d).forEach((m) => m?.platId && meals.push({ platId: m.platId })));
+      if (!meals.length) {
+        enqueueSnackbar("Aucun plat n'est planifié cette semaine. Remplissez d'abord le planning.", { variant: 'warning' });
         return;
       }
-
-      const newShoppingList = aggregateIngredients(currentPlannedMeals, allPlats, allIngredientsFromStock);
-
-      for (const item of newShoppingList) {
-        const currentIngredient = await getIngredientById(item.ingredientId);
-        if (currentIngredient) {
-          if (currentIngredient.status === INGREDIENT_STATUS.EXHAUSTED || currentIngredient.status === INGREDIENT_STATUS.NOT_USED) {
-            await updateIngredientStock(item.ingredientId, item.quantite, currentIngredient.status);
-          }
+      const list = aggregateIngredients(meals, plats, stk);
+      // Comportement d'origine : réapprovisionne les ingrédients épuisés ou jamais utilisés.
+      for (const item of list) {
+        const cur = await getIngredientById(item.ingredientId);
+        if (cur && (cur.status === INGREDIENT_STATUS.EXHAUSTED || cur.status === INGREDIENT_STATUS.NOT_USED)) {
+          await updateIngredientStock(item.ingredientId, item.quantite, cur.status);
         }
       }
-
-      setShoppingList(newShoppingList);
-      localStorage.setItem('shoppingList', JSON.stringify(newShoppingList));
-      setSuccess('Liste de marché générée à partir du planning de repas et stock potentiellement ajusté.');
-      setError('');
-    } catch (e) {
-      console.error("Erreur lors de la génération de la liste ou de la mise à jour du stock :", e);
-      setError("Erreur lors de la génération de la liste ou de la mise à jour du stock : " + e.message);
-      setSuccess('');
+      update(list);
+      enqueueSnackbar(`Liste générée : ${list.length} ingrédient(s) pour la semaine.`, { variant: 'success' });
+    } catch (err) {
+      enqueueSnackbar(`Erreur lors de la génération : ${friendlyError(err)}`, { variant: 'error' });
     } finally {
-      setLoading(false);
+      setBusy('');
     }
   };
 
-  const handleToggleCheck = (ingredientId) => {
-    const updatedList = shoppingList.map(item =>
-      item.ingredientId === ingredientId ? { ...item, checked: !item.checked } : item
-    );
-    setShoppingList(updatedList);
-    localStorage.setItem('shoppingList', JSON.stringify(updatedList));
+  const handleClearAll = async () => {
+    setMenu(null);
+    if (!(await confirm({ title: 'Vider la liste de marché ?', message: 'Tous les articles seront retirés.', confirmLabel: 'Vider' }))) return;
+    update([]);
+    localStorage.removeItem('shoppingList');
   };
 
-  const handleRemoveItem = async (ingredientId) => {
-    const updatedList = shoppingList.filter(item => item.ingredientId !== ingredientId);
-    setShoppingList(updatedList);
-    localStorage.setItem('shoppingList', JSON.stringify(updatedList));
-    setSuccess('Ingrédient retiré de la liste.');
-    setError('');
-  };
+  const buildPdf = () => {
+    const doc = new jsPDF();
+    const margin = 15;
+    const width = doc.internal.pageSize.width;
+    let y = margin;
 
-  const handleClearAll = () => {
-    if (window.confirm('Êtes-vous sûr de vouloir vider toute la liste de marché ?')) {
-      setShoppingList([]);
-      localStorage.removeItem('shoppingList');
-      setSuccess('Liste de marché vidée.');
-      setError('');
-    }
-  };
+    doc.setFillColor(194, 70, 26);
+    doc.rect(0, 0, width, 32, 'F');
+    doc.setTextColor(255, 243, 224);
+    doc.setFontSize(20);
+    doc.text('Liste de marché', margin, 18);
+    doc.setFontSize(10);
+    doc.text(`Cuisine Africaine · ${new Date().toLocaleDateString('fr-FR')}`, margin, 26);
+    y = 46;
+    doc.setTextColor(42, 26, 18);
 
-  const generateShoppingListPdf = () => {
-    return new Promise((resolve, reject) => {
-      const doc = new jsPDF();
-      const margin = 15;
-      let yPosition = margin + 10;
-      const lineHeight = 7;
-
-      doc.setFontSize(20);
-      doc.text('Liste de Marché', margin, yPosition);
-      yPosition += lineHeight + 5;
-
+    shoppingList.forEach((item) => {
+      if (y > doc.internal.pageSize.height - margin - 20) { doc.addPage(); y = margin + 10; }
+      doc.setDrawColor(194, 70, 26);
+      doc.rect(margin, y - 4, 4, 4);
+      doc.setFontSize(12);
+      doc.text(`${item.nom}`, margin + 8, y);
       doc.setFontSize(10);
-      const today = new Date().toLocaleDateString('fr-FR');
-      doc.text(`Générée le : ${today}`, margin, yPosition);
-      yPosition += lineHeight + 10;
-
-      if (shoppingList.length === 0) {
-        doc.setFontSize(12);
-        doc.text("Votre liste de marché est vide. Rien à exporter.", margin, yPosition);
-        doc.output('blob').then(resolve).catch(reject);
-        return;
-      }
-
-      for (const item of shoppingList) {
-        if (yPosition + lineHeight * 2 > doc.internal.pageSize.height - margin) {
-          doc.addPage();
-          yPosition = margin + 10;
-        }
-
-        doc.setFontSize(12);
-        const itemPriceCalculated = (parseFloat(item.prixUnitaire) || 0) * (parseFloat(item.quantite) || 0);
-        const itemCost = isNaN(itemPriceCalculated) ? 'N/A' : itemPriceCalculated.toFixed(0);
-
-        const text = `${item.nom} : ${item.quantite} ${item.uniteMesure} (Est. ${itemCost} FCFA)`;
-        doc.text(text, margin, yPosition + lineHeight);
-
-        yPosition += lineHeight * 2;
-        doc.line(margin, yPosition, doc.internal.pageSize.width - margin, yPosition);
-        yPosition += 5;
-      }
-
-      const totalCost = shoppingList.reduce((acc, item) => {
-        const itemPrice = parseFloat(item.prixUnitaire) || 0;
-        const itemQuantity = parseFloat(item.quantite) || 0;
-        return acc + (itemPrice * itemQuantity);
-      }, 0);
-
-      doc.setFontSize(14);
-      doc.text(`Coût total  : ${totalCost.toFixed(0)} FCFA`, margin, yPosition + 10);
-
-      doc.output('blob').then(resolve).catch(reject);
+      doc.setTextColor(122, 100, 87);
+      doc.text(`${formatNumber(item.quantite)} ${item.uniteMesure || ''}`, margin + 8, y + 5);
+      const c = cost(item);
+      doc.text(c.unit === null ? 'Prix inconnu' : `${Math.round(c.total)} FCFA`, width - margin, y, { align: 'right' });
+      doc.setTextColor(42, 26, 18);
+      doc.setDrawColor(234, 219, 198);
+      doc.line(margin, y + 9, width - margin, y + 9);
+      y += 16;
     });
+    doc.setFontSize(14);
+    doc.text(`Total estimé : ${Math.round(total)} FCFA`, width - margin, y + 8, { align: 'right' });
+    return doc.output('blob');
   };
 
-  const handleDownloadPdf = async () => {
-    setIsPdfGenerating(true);
-    setError('');
-    setSuccess('');
+  const handleDownloadPdf = () => {
+    setMenu(null);
     try {
-      const pdfBlob = await generateShoppingListPdf();
-      const pdfUrl = URL.createObjectURL(pdfBlob);
+      const url = URL.createObjectURL(buildPdf());
       const a = document.createElement('a');
-      a.href = pdfUrl;
-      a.download = `Liste_de_Marche_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`;
+      a.href = url;
+      a.download = `Liste_de_Marche_${today()}.pdf`;
       document.body.appendChild(a);
       a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(pdfUrl);
-      setSuccess('La liste de marché a été générée en PDF et téléchargée avec succès !');
+      a.remove();
+      URL.revokeObjectURL(url);
     } catch (err) {
-      console.error('Erreur lors du téléchargement du PDF :', err);
-      setError('Erreur lors du téléchargement du PDF : ' + err.message);
-    } finally {
-      setIsPdfGenerating(false);
+      enqueueSnackbar(`Erreur lors de la génération du PDF : ${err.message}`, { variant: 'error' });
     }
   };
 
-  const handleSendShoppingListEmail = async () => {
-    if (shoppingList.length === 0) {
-      setError('La liste de marché est vide. Générez-la avant de l\'envoyer par e-mail.');
+  // Version texte de la liste, pour WhatsApp, SMS et e-mail.
+  const buildText = () => {
+    const lines = shoppingList.map((i) => {
+      const c = cost(i);
+      const price = c.unit === null ? '' : ` — ${formatFcfa(c.total)}`;
+      return `${i.checked ? '✅' : '▫️'} ${i.nom} : ${formatNumber(i.quantite)} ${i.uniteMesure || ''}${price}`;
+    });
+    return `🛒 Liste de marché du ${new Date().toLocaleDateString('fr-FR')}\n\n${lines.join('\n')}\n\nTotal estimé : ${formatFcfa(total)}\n\n— Cuisine Africaine`;
+  };
+
+  const familyEmails = membres.map((m) => m.email).filter((e) => e && e.includes('@'));
+
+  /** Écran de partage natif (mobile) avec le PDF joint, sinon le texte. */
+  const handleShare = async () => {
+    setMenu(null);
+    const file = new File([buildPdf()], `Liste_de_Marche_${today()}.pdf`, { type: 'application/pdf' });
+    try {
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Liste de marché', text: buildText() });
+      } else {
+        await navigator.share({ title: 'Liste de marché', text: buildText() });
+      }
+    } catch (err) {
+      if (err.name !== 'AbortError') enqueueSnackbar(`Partage impossible : ${err.message}`, { variant: 'error' });
+    }
+  };
+
+  const handleWhatsApp = () => {
+    setMenu(null);
+    window.open(`https://wa.me/?text=${encodeURIComponent(buildText())}`, '_blank', 'noopener');
+  };
+
+  /**
+   * E-mail à toute la famille. Si une Cloud Function d'envoi est configurée
+   * (REACT_APP_EMAIL_API_URL), elle envoie le PDF en pièce jointe ; sinon on ouvre
+   * la messagerie de l'appareil avec la liste dans le corps du message.
+   */
+  const handleSendEmail = async () => {
+    setMenu(null);
+    if (!process.env.REACT_APP_EMAIL_API_URL) {
+      const subject = encodeURIComponent(`Liste de marché du ${new Date().toLocaleDateString('fr-FR')}`);
+      const body = encodeURIComponent(`Bonjour la famille,\n\n${buildText()}`);
+      window.location.href = `mailto:?bcc=${familyEmails.map(encodeURIComponent).join(',')}&subject=${subject}&body=${body}`;
       return;
     }
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
+    setBusy('mail');
     try {
-      const shoppingListPdfBlob = await generateShoppingListPdf();
-      const shoppingListPdfBase64 = await blobToBase64(shoppingListPdfBlob);
-
-      const emailsToSend = [];
-      for (const membre of membresFamille) {
-        if (!membre.email) continue;
-
-        let messageBody = `Bonjour ${membre.nom},\n\n`;
-        messageBody += `Voici la liste de marché pour nos prochains repas ! N'oubliez pas que chaque dépense dans notre alimentation est un investissement dans notre bien-être et notre bonheur familial. Ensemble, faisons de chaque repas un moment spécial.\n\n`;
-        messageBody += `La liste de marché est jointe à cet e-mail.\n\n`;
-        messageBody += `Merci de votre contribution !\nL'équipe Cuisine Africaine App.`;
-
-        emailsToSend.push({
-          to: membre.email,
-          subject: `Votre Liste de Marché !`,
-          body: messageBody,
-          attachment: {
-            filename: `Liste_de_Marche_${new Date().toLocaleDateString('fr-FR').replace(/\//g, '-')}.pdf`,
-            content: shoppingListPdfBase64,
-            contentType: 'application/pdf',
-          },
-        });
-      }
-
-      // VRAI ENVOI AU BACKEND
-      const response = await fetch('/api/send-email', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ emails: emailsToSend }),
+      const content = await blobToBase64(buildPdf());
+      const emails = membres.filter((m) => m.email).map((m) => ({
+        to: m.email,
+        subject: 'Votre liste de marché !',
+        body:
+          `Bonjour ${m.nomComplet || ''},\n\n` +
+          "Voici la liste de marché pour nos prochains repas ! N'oubliez pas que chaque dépense dans notre alimentation est un investissement dans notre bien-être et notre bonheur familial. Ensemble, faisons de chaque repas un moment spécial.\n\n" +
+          'La liste de marché est jointe à cet e-mail.\n\nMerci de votre contribution !\nL\'équipe Cuisine Africaine.',
+        attachment: { filename: `Liste_de_Marche_${today()}.pdf`, content, contentType: 'application/pdf' },
+      }));
+      const response = await fetch(process.env.REACT_APP_EMAIL_API_URL, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ emails }),
       });
-
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Erreur lors de l\'envoi des e-mails.');
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.message || "Erreur lors de l'envoi des e-mails.");
       }
-
-      setSuccess('La liste de marché a été envoyée par e-mail à tous les membres de la famille !');
+      enqueueSnackbar('Liste envoyée par e-mail à toute la famille !', { variant: 'success' });
     } catch (err) {
-      console.error('Erreur lors de l\'envoi de la liste de marché par e-mail :', err);
-      setError('Erreur lors de l\'envoi de la liste de marché par e-mail : ' + err.message);
+      enqueueSnackbar(`Envoi impossible : ${err.message}`, { variant: 'error' });
     } finally {
-      setLoading(false);
+      setBusy('');
     }
   };
 
-  const totalCost = shoppingList.reduce((acc, item) => {
-    const itemPrice = parseFloat(item.prixUnitaire) || 0;
-    const itemQuantity = parseFloat(item.quantite) || 0;
-    return acc + (itemPrice * itemQuantity);
-  }, 0);
+  // Prix toujours lu en direct dans le catalogue d'ingrédients (l'ancien prix mémorisé ne sert
+  // que si l'ingrédient a été supprimé). Une modification de prix se répercute donc immédiatement.
+  const priceOf = (item) => {
+    const ing = stock.find((s) => s.id === item.ingredientId);
+    const live = parseFloat(ing?.prix);
+    if (!Number.isNaN(live)) return live;
+    const saved = parseFloat(item.prixUnitaire);
+    return saved > 0 ? saved : null; // null = prix inconnu
+  };
+  const cost = (item) => {
+    const unit = priceOf(item);
+    return { unit, total: (unit || 0) * (parseFloat(item.quantite) || 0) };
+  };
+  const total = shoppingList.reduce((s, i) => s + cost(i).total, 0);
+  const missingPrices = shoppingList.filter((i) => priceOf(i) === null).length;
+  const remaining = shoppingList.filter((i) => !i.checked);
+  const done = shoppingList.filter((i) => i.checked);
+  const progress = shoppingList.length ? (done.length / shoppingList.length) * 100 : 0;
+  const toggle = (id) => update(shoppingList.map((i) => (i.ingredientId === id ? { ...i, checked: !i.checked } : i)));
+  const remove = (id) => update(shoppingList.filter((i) => i.ingredientId !== id));
 
   return (
     <Box>
-      <Typography variant="h4" component="h2" gutterBottom sx={{ mb: 3 }}>
-        Liste de Marché
-      </Typography>
+      <PageHeader
+        eyebrow="Organisation"
+        title="Liste de marché"
+        subtitle="Générée à partir du planning, à cocher directement au marché."
+        actions={
+          <>
+            <Button variant="contained" onClick={handleGenerate} disabled={Boolean(busy)}
+              startIcon={busy === 'gen' ? <CircularProgress size={16} color="inherit" /> : <AutoAwesomeRoundedIcon />}>
+              Générer depuis le planning
+            </Button>
+            {shoppingList.length > 0 && (
+              <IconButton onClick={(e) => setMenu(e.currentTarget)} sx={{ border: '1.5px solid', borderColor: 'divider' }} aria-label="Plus d'actions">
+                {busy === 'mail' ? <CircularProgress size={20} /> : <MoreHorizRoundedIcon />}
+              </IconButton>
+            )}
+          </>
+        }
+      />
+      <Menu anchorEl={menu} open={Boolean(menu)} onClose={() => setMenu(null)}>
+        {typeof navigator !== 'undefined' && navigator.share && (
+          <MenuItem onClick={handleShare}><ListItemIcon><IosShareRoundedIcon /></ListItemIcon><ListItemText primary="Partager…" secondary="PDF via WhatsApp, Gmail, SMS…" /></MenuItem>
+        )}
+        <MenuItem onClick={handleWhatsApp}><ListItemIcon><WhatsAppIcon sx={{ color: '#25D366' }} /></ListItemIcon><ListItemText>Envoyer sur WhatsApp</ListItemText></MenuItem>
+        <MenuItem onClick={handleSendEmail} disabled={familyEmails.length === 0}>
+          <ListItemIcon><EmailRoundedIcon /></ListItemIcon>
+          <ListItemText primary="E-mail à la famille" secondary={`${familyEmails.length} destinataire(s)`} />
+        </MenuItem>
+        <MenuItem onClick={handleDownloadPdf}><ListItemIcon><PictureAsPdfRoundedIcon /></ListItemIcon><ListItemText>Télécharger en PDF</ListItemText></MenuItem>
+        <MenuItem onClick={handleClearAll} sx={{ color: 'error.main' }}><ListItemIcon><DeleteSweepRoundedIcon color="error" /></ListItemIcon><ListItemText>Vider la liste</ListItemText></MenuItem>
+      </Menu>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-      {success && (
-        <Alert severity="success" sx={{ mb: 2 }}>
-          {success}
-        </Alert>
-      )}
-
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <Button
-          variant="contained"
-          color="primary"
-          startIcon={<ShoppingCartIcon />}
-          onClick={handleGenerateShoppingList}
-          disabled={allPlats.length === 0 || allIngredientsFromStock.length === 0 || loading}
-        >
-          Générer la liste à partir du planning
-        </Button>
-        <Button
-          variant="contained"
-          color="secondary"
-          onClick={handleDownloadPdf}
-          startIcon={isPdfGenerating ? <CircularProgress size={20} color="inherit" /> : <PictureAsPdfIcon />}
-          disabled={shoppingList.length === 0 || isPdfGenerating || loading}
-        >
-          {isPdfGenerating ? 'Génération...' : 'Télécharger en PDF'}
-        </Button>
-        <Button
-          variant="contained"
-          color="info"
-          startIcon={<EmailIcon />}
-          onClick={handleSendShoppingListEmail}
-          disabled={shoppingList.length === 0 || membresFamille.length === 0 || membresFamille.filter(m => m.email).length === 0 || loading}
-        >
-          Envoyer par Mail
-        </Button>
-        <Button
-          variant="contained"
-          color="error"
-          startIcon={<ClearAllIcon />}
-          onClick={handleClearAll}
-          disabled={shoppingList.length === 0 || loading}
-        >
-          Vider toute la liste
-        </Button>
-      </Box>
-
-      {loading && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', my: 4 }}>
-          <CircularProgress />
-          <Typography sx={{ ml: 2 }}>Opération en cours...</Typography>
-        </Box>
-      )}
-
-      {!loading && shoppingList.length === 0 ? (
-        <Paper elevation={2} sx={{ p: 3 }}>
-          <Typography variant="body1" align="center">
-            Votre liste de marché est vide. Générez-la à partir du "Planning des Repas" !
-          </Typography>
-        </Paper>
+      {shoppingList.length === 0 ? (
+        <EmptyState
+          icon={<ShoppingBasketRoundedIcon />} title="Votre panier est vide"
+          description="Générez la liste à partir du planning de la semaine, ou ajoutez les ingrédients d'un plat depuis le planning."
+          action={<Button variant="contained" startIcon={<AutoAwesomeRoundedIcon />} onClick={handleGenerate} disabled={Boolean(busy)}>Générer la liste</Button>}
+        />
       ) : (
-        !loading && (
-          <Paper elevation={2} sx={{ p: 3 }}>
-            <List>
-              {shoppingList.map((item) => (
-                <React.Fragment key={item.ingredientId}>
-                  <ListItem>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={item.checked}
-                          onChange={() => handleToggleCheck(item.ingredientId)}
-                        />
-                      }
-                      label={
-                        <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-                          <Typography
-                            sx={{ textDecoration: item.checked ? 'line-through' : 'none', flexGrow: 1 }}
-                          >
-                            {item.nom} : {item.quantite} {item.uniteMesure}
-                            {item.prixUnitaire !== undefined && item.quantite !== undefined && (
-                              ` (Est. ${(parseFloat(item.quantite) * parseFloat(item.prixUnitaire)).toFixed(0)} FCFA)`
-                            )}
-                          </Typography>
-                        </Box>
-                      }
-                      sx={{ flexGrow: 1, mr: 2 }}
-                    />
-                    <ListItemSecondaryAction>
-                      <IconButton edge="end" aria-label="delete" onClick={() => handleRemoveItem(item.ingredientId)}>
-                        <DeleteIcon color="error" />
-                      </IconButton>
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                  <Divider />
-                </React.Fragment>
-              ))}
-            </List>
-            <Divider sx={{ my: 2 }} />
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
-              <Typography variant="h6">
-                Coût total : {totalCost.toFixed(0)} FCFA
-              </Typography>
+        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1fr) 300px' }, alignItems: 'start' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Card sx={{ p: 1.5 }}>
+              <Typography variant="overline" color="text.secondary" sx={{ px: 1.5 }}>À acheter · {remaining.length}</Typography>
+              {remaining.length === 0 ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, m: 1, p: 2, borderRadius: 3, bgcolor: tint('success', 0.1), color: 'success.main' }}>
+                  <CheckCircleRoundedIcon /><Typography sx={{ fontWeight: 700 }}>Tout est dans le panier, bon retour du marché !</Typography>
+                </Box>
+              ) : (
+                remaining.map((i) => <Item key={i.ingredientId} item={i} cost={cost(i)} onToggle={() => toggle(i.ingredientId)} onRemove={() => remove(i.ingredientId)} />)
+              )}
+            </Card>
+            {done.length > 0 && (
+              <Card sx={{ p: 1.5, opacity: 0.85 }}>
+                <Typography variant="overline" color="text.secondary" sx={{ px: 1.5 }}>Dans le panier · {done.length}</Typography>
+                {done.map((i) => <Item key={i.ingredientId} item={i} cost={cost(i)} onToggle={() => toggle(i.ingredientId)} onRemove={() => remove(i.ingredientId)} />)}
+              </Card>
+            )}
+          </Box>
+
+          <Box sx={{ position: { md: 'sticky' }, top: { md: 24 }, borderRadius: 6, p: 3, color: '#FFF3E0', background: `${patternBg('#FFF3E0', 0.1)}, linear-gradient(140deg, #2F8F5B, #1F6B42)`, boxShadow: '0 20px 50px rgba(31,107,66,.3)' }}>
+            <Typography variant="overline" sx={{ opacity: 0.8 }}>Budget estimé</Typography>
+            <Typography sx={{ fontFamily: '"Fraunces Variable", serif', fontWeight: 700, fontSize: { xs: 34, md: 30, lg: 34 }, lineHeight: 1.1, mb: 2.5, overflowWrap: 'anywhere' }}>{formatFcfa(total)}</Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography sx={{ fontWeight: 650 }}>Progression</Typography>
+              <Typography sx={{ fontWeight: 800 }}>{done.length}/{shoppingList.length}</Typography>
             </Box>
-          </Paper>
-        )
+            <LinearProgress variant="determinate" value={progress} sx={{ bgcolor: 'rgba(255,243,224,.2)', '& .MuiLinearProgress-bar': { bgcolor: '#F2A93B' } }} />
+            <Typography variant="body2" sx={{ mt: 2, opacity: 0.8 }}>
+              Reste à dépenser : <b>{formatFcfa(remaining.reduce((s, i) => s + cost(i).total, 0))}</b>
+            </Typography>
+            <Typography variant="caption" sx={{ display: 'block', mt: 1.5, opacity: 0.75 }}>
+              {missingPrices > 0
+                ? `${missingPrices} article(s) sans prix : renseignez-le dans « Ingrédients ».`
+                : 'Prix à jour selon votre catalogue d\'ingrédients.'}
+            </Typography>
+          </Box>
+        </Box>
       )}
     </Box>
   );

@@ -1,432 +1,102 @@
 // src/pages/ConfigurerFamillePage.js
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Avatar, Box, Button, Card, Divider, IconButton, Tooltip, Typography } from '@mui/material';
+import PersonAddAlt1RoundedIcon from '@mui/icons-material/PersonAddAlt1Rounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import { enqueueSnackbar } from 'notistack';
 import { createMembre } from '../services/membreService';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
-
-import {
-  Container,
-  TextField,
-  Button,
-  Typography,
-  Box,
-  FormControlLabel,
-  Checkbox,
-  RadioGroup,
-  Radio,
-  FormControl,
-  FormLabel,
-  Paper,
-  Grid,
-  Avatar,
-  Divider,
-  Alert,
-  FormGroup,
-} from '@mui/material';
-import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
-import AddIcon from '@mui/icons-material/Add';
-import DoneIcon from '@mui/icons-material/Done';
+import { Logo, PhotoPicker, patternBg } from '../components/ui';
+import { IdentityFields, RoleHealthFields } from '../components/membres/MemberFields';
+import { emptyMember, toMembre } from '../components/membres/memberModel';
+import { friendlyError, initials } from '../utils';
 
 function ConfigurerFamillePage() {
-  const [membres, setMembres] = useState([
-    {
-      email: '',
-      nomComplet: '',
-      age: '',
-      sexe: 'homme',
-      antecedentsMedicaux: [],
-      autreAntecedent: '',
-      roleFamille: [],
-      autreRoleFamille: '',
-      photoProfil: '',
-      platsPreferes: [], // Initialiser les plats préférés
-    },
-  ]);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
+  const [membres, setMembres] = useState([emptyMember()]);
+  const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
 
-  const handleAjouterMembre = () => {
-    setMembres([
-      ...membres,
-      {
-        email: '',
-        nomComplet: '',
-        age: '',
-        sexe: 'homme',
-        antecedentsMedicaux: [],
-        autreAntecedent: '',
-        roleFamille: [],
-        autreRoleFamille: '',
-        photoProfil: '',
-        platsPreferes: [],
-      },
-    ]);
-  };
-
-  const handleMembreChange = (index, e) => {
-    const { name, value, type, checked, files } = e.target;
-    const updatedMembres = [...membres];
-
-    if (type === 'checkbox') {
-      const checkboxValue = e.target.value;
-      let currentMembre = updatedMembres[index];
-      let updatedAntecedents = [...currentMembre.antecedentsMedicaux];
-      let updatedRoles = [...currentMembre.roleFamille];
-
-      if (name.includes('antecedent')) {
-        if (checkboxValue === 'RAS') {
-          if (checked) {
-            updatedAntecedents = ['RAS'];
-            currentMembre.autreAntecedent = ''; // Vider le champ "Autre" si RAS est coché
-          } else {
-            updatedAntecedents = updatedAntecedents.filter(a => a !== 'RAS');
-          }
-        } else if (checkboxValue === 'Autre') {
-          currentMembre.autreAntecedent = checked ? '' : currentMembre.autreAntecedent; // Toggle text field
-          if (checked && updatedAntecedents.includes('RAS')) {
-            updatedAntecedents = updatedAntecedents.filter(a => a !== 'RAS');
-          }
-          // Ne pas ajouter 'Autre' directement au tableau
-        } else { // Autres antécédents spécifiques
-          if (checked) {
-            updatedAntecedents = updatedAntecedents.filter(a => a !== 'RAS').concat(checkboxValue);
-          } else {
-            updatedAntecedents = updatedAntecedents.filter(a => a !== checkboxValue);
-          }
-        }
-        updatedMembres[index].antecedentsMedicaux = updatedAntecedents;
-      } else if (name.includes('role')) {
-        if (checkboxValue === 'Autre') {
-          currentMembre.autreRoleFamille = checked ? '' : currentMembre.autreRoleFamille; // Toggle text field
-        } else {
-          if (checked) {
-            updatedRoles = [...updatedRoles, checkboxValue];
-          } else {
-            updatedRoles = updatedRoles.filter(r => r !== checkboxValue);
-          }
-        }
-        updatedMembres[index].roleFamille = updatedRoles;
-      }
-    } else if (type === 'file') {
-        const file = files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                updatedMembres[index].photoProfil = reader.result; // Stocke la chaîne base64
-                setMembres(updatedMembres);
-            };
-            reader.readAsDataURL(file);
-        } else {
-            updatedMembres[index].photoProfil = '';
-            setMembres(updatedMembres);
-        }
-    } else {
-      updatedMembres[index][name] = value;
-    }
-    setMembres(updatedMembres);
-  };
-
+  const setAt = (index) => (patch) =>
+    setMembres((list) => list.map((m, i) => (i === index ? { ...m, ...patch } : m)));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
+    setBusy(true);
     try {
       for (const membre of membres) {
-        // Préparer les antécédents médicaux et rôles pour le stockage
-        let finalAntecedents = [...membre.antecedentsMedicaux];
-        if (membre.autreAntecedent.trim() !== '') {
-            finalAntecedents = finalAntecedents.filter(a => a !== 'RAS');
-            finalAntecedents.push(`Autre: ${membre.autreAntecedent.trim()}`);
-        } else {
-            finalAntecedents = finalAntecedents.filter(a => !a.startsWith('Autre: '));
-        }
-        if (finalAntecedents.length === 0 && membre.autreAntecedent.trim() === '') {
-            finalAntecedents = ['RAS'];
-        }
-
-        let finalRoles = [...membre.roleFamille];
-        if (membre.autreRoleFamille.trim() !== '') {
-            finalRoles.push(`Autre: ${membre.autreRoleFamille.trim()}`);
-        } else {
-            finalRoles = finalRoles.filter(r => !r.startsWith('Autre: '));
-        }
-
-        const membreData = {
-            // Utilisation de l'email comme UID de document si pas d'UID Firebase Auth
-            // IMPORTANT : L'email doit être unique pour chaque membre de la famille dans Firestore pour cette approche.
-            uid: membre.email,
-            email: membre.email,
-            nomComplet: membre.nomComplet,
-            age: parseInt(membre.age, 10),
-            sexe: membre.sexe,
-            antecedentsMedicaux: finalAntecedents,
-            roleFamille: finalRoles,
-            photoProfil: membre.photoProfil, // La chaîne Base64
-            platsPreferes: membre.platsPreferes || [],
-        };
-        await createMembre(membreData); // Utilise createMembre qui gère setDoc avec l'ID
+        // L'email sert d'identifiant du document pour les membres sans compte.
+        await createMembre({ ...toMembre(membre, { basic: true }), uid: membre.email });
       }
-      setSuccess('Membres de la famille configurés avec succès ! Redirection vers le tableau de bord...');
-      setMembres([
-        { // Réinitialise le formulaire après succès
-          email: '', nomComplet: '', age: '', sexe: 'homme', antecedentsMedicaux: [],
-          autreAntecedent: '', roleFamille: [], autreRoleFamille: '', photoProfil: '', platsPreferes: [],
-        },
-      ]);
-      // Rediriger vers la page famille_dashboard
-      setTimeout(() => {
-        navigate('/famille-dashboard/membres'); // Redirige vers la liste des membres
-      }, 2000);
-
+      enqueueSnackbar(`${membres.length} membre(s) ajouté(s) à la famille !`, { variant: 'success' });
+      navigate('/famille-dashboard', { replace: true });
     } catch (err) {
       console.error('Erreur lors de la configuration des membres :', err);
-      setError(`Erreur de configuration: ${err.message}`);
+      enqueueSnackbar(friendlyError(err), { variant: 'error' });
+      setBusy(false);
     }
   };
 
   return (
-    <Container maxWidth="md">
-      <Paper elevation={3} sx={{ padding: 4, mt: 4, borderRadius: 2 }}>
-        <Typography variant="h4" component="h2" gutterBottom align="center">
-          Configurer les Autres Membres de la Famille
+    <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default' }}>
+      <Box
+        sx={{
+          pt: 'calc(env(safe-area-inset-top) + 28px)', pb: 10, px: 2, color: '#FFF3E0', textAlign: 'center',
+          background: `${patternBg('#FFF3E0', 0.12)}, linear-gradient(135deg, #E8622C, #A9370F)`,
+        }}
+      >
+        <Logo size={42} color="#FFF3E0" sx={{ justifyContent: 'center', mb: 3 }} />
+        <Typography variant="h4" component="h1" sx={{ fontSize: { xs: 28, md: 38 } }}>Présentez-nous votre famille</Typography>
+        <Typography sx={{ opacity: 0.85, mt: 1, maxWidth: 560, mx: 'auto' }}>
+          Ajoutez les personnes avec qui vous partagez les repas. Leurs goûts et leur santé guideront les menus.
         </Typography>
+      </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
-        {success && (
-          <Alert severity="success" sx={{ mb: 2 }}>
-            {success}
-          </Alert>
-        )}
-
-        <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
-          {membres.map((membre, index) => (
-            <Box key={index} sx={{ mb: 4, p: 3, border: '1px solid #e0e0e0', borderRadius: 2, bgcolor: '#fafafa' }}>
-              <Typography variant="h6" gutterBottom>
-                Membre {index + 1}
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-
-              <TextField
-                fullWidth
-                label="Email"
-                type="email"
-                name="email"
-                value={membre.email}
-                onChange={(e) => handleMembreChange(index, e)}
-                required
-                margin="normal"
-              />
-              <TextField
-                fullWidth
-                label="Nom Complet"
-                type="text"
-                name="nomComplet"
-                value={membre.nomComplet}
-                onChange={(e) => handleMembreChange(index, e)}
-                required
-                margin="normal"
-              />
-              <TextField
-                fullWidth
-                label="Age"
-                type="number"
-                name="age"
-                value={membre.age}
-                onChange={(e) => handleMembreChange(index, e)}
-                required
-                margin="normal"
-              />
-
-              <FormControl component="fieldset" margin="normal" fullWidth>
-                <FormLabel component="legend">Sexe</FormLabel>
-                <RadioGroup
-                  row
-                  name={`sexe-${index}`}
-                  value={membre.sexe}
-                  onChange={(e) => handleMembreChange(index, { target: { name: 'sexe', value: e.target.value } })}
-                >
-                  <FormControlLabel value="homme" control={<Radio />} label="Homme" />
-                  <FormControlLabel value="femme" control={<Radio />} label="Femme" />
-                </RadioGroup>
-              </FormControl>
-
-              <FormControl component="fieldset" margin="normal" fullWidth>
-                <FormLabel component="legend">Antécédents Médicaux</FormLabel>
-                <Grid container spacing={1}>
-                  <Grid item xs={6} sm={4}> {/* Utilisation de item xs={...} pour Grid */}
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={membre.antecedentsMedicaux.includes('RAS')}
-                          onChange={(e) => handleMembreChange(index, e)}
-                          value="RAS"
-                          name={`antecedentRAS-${index}`}
-                        />
-                      }
-                      label="RAS (Rien à Signaler)"
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={4}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={membre.antecedentsMedicaux.includes('Diabète')}
-                          onChange={(e) => handleMembreChange(index, e)}
-                          value="Diabète"
-                          name={`antecedentDiabete-${index}`}
-                          disabled={membre.antecedentsMedicaux.includes('RAS')}
-                        />
-                      }
-                      label="Diabète"
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={4}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={membre.antecedentsMedicaux.includes('Hypertension')}
-                          onChange={(e) => handleMembreChange(index, e)}
-                          value="Hypertension"
-                          name={`antecedentHypertension-${index}`}
-                          disabled={membre.antecedentsMedicaux.includes('RAS')}
-                        />
-                      }
-                      label="Hypertension"
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={4}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={membre.antecedentsMedicaux.includes('Allergie alimentaire')}
-                          onChange={(e) => handleMembreChange(index, e)}
-                          value="Allergie alimentaire"
-                          name={`antecedentAllergie-${index}`}
-                          disabled={membre.antecedentsMedicaux.includes('RAS')}
-                        />
-                      }
-                      label="Allergie alimentaire"
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={membre.autreAntecedent !== ''}
-                          onChange={(e) => handleMembreChange(index, { target: { name: `antecedentAutreCheck-${index}`, value: 'Autre', checked: e.target.checked, type: 'checkbox' } })}
-                          value="Autre"
-                          disabled={membre.antecedentsMedicaux.includes('RAS')}
-                        />
-                      }
-                      label="Autres :"
-                    />
-                    {(membre.autreAntecedent !== '' || (membre.autreAntecedent === '' && membre.antecedentsMedicaux.some(a => a.startsWith('Autre: ')))) && !membre.antecedentsMedicaux.includes('RAS') && (
-                      <TextField
-                        size="small"
-                        name="autreAntecedent"
-                        value={membre.autreAntecedent}
-                        onChange={(e) => handleMembreChange(index, e)}
-                        placeholder="Spécifiez"
-                        fullWidth
-                        sx={{ mt: 1 }}
-                      />
-                    )}
-                  </Grid>
-                </Grid>
-              </FormControl>
-
-              <FormControl component="fieldset" margin="normal" fullWidth>
-                <FormLabel component="legend">Rôle dans la Famille</FormLabel>
-                <Grid container spacing={1}>
-                  <Grid item xs={6} sm={4}>
-                    <FormControlLabel
-                      control={<Checkbox checked={membre.roleFamille.includes('Mère')} onChange={(e) => handleMembreChange(index, e)} value="Mère" name={`roleMere-${index}`} />}
-                      label="Mère"
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={4}>
-                    <FormControlLabel
-                      control={<Checkbox checked={membre.roleFamille.includes('Père')} onChange={(e) => handleMembreChange(index, e)} value="Père" name={`rolePere-${index}`} />}
-                      label="Père"
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={4}>
-                    <FormControlLabel
-                      control={<Checkbox checked={membre.roleFamille.includes('Enfant')} onChange={(e) => handleMembreChange(index, e)} value="Enfant" name={`roleEnfant-${index}`} />}
-                      label="Enfant"
-                    />
-                  </Grid>
-                  <Grid item xs={6} sm={4}>
-                    <FormControlLabel
-                      control={<Checkbox checked={membre.roleFamille.includes('Grand-parent')} onChange={(e) => handleMembreChange(index, e)} value="Grand-parent" name={`roleGrandParent-${index}`} />}
-                      label="Grand-parent"
-                    />
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <FormControlLabel
-                      control={<Checkbox checked={membre.autreRoleFamille !== ''} onChange={(e) => handleMembreChange(index, { target: { name: `roleAutreCheck-${index}`, value: 'Autre', checked: e.target.checked, type: 'checkbox' } })} value="Autre" />}
-                      label="Autres :"
-                    />
-                    {(membre.autreRoleFamille !== '' || (membre.autreRoleFamille === '' && membre.roleFamille.some(r => r.startsWith('Autre: ')))) && (
-                      <TextField
-                        size="small"
-                        name="autreRoleFamille"
-                        value={membre.autreRoleFamille}
-                        onChange={(e) => handleMembreChange(index, e)}
-                        placeholder="Spécifiez le rôle"
-                        fullWidth
-                        sx={{ mt: 1 }}
-                      />
-                    )}
-                  </Grid>
-                </Grid>
-              </FormControl>
-
-              <Box sx={{ my: 2 }}>
-                <FormLabel component="legend" htmlFor={`photo-upload-${index}`}>Photo de Profil (facultatif)</FormLabel>
-                <input
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  id={`photo-upload-${index}`}
-                  type="file"
-                  name="photoProfil" // Le nom doit correspondre à la prop dans handleMembreChange
-                  onChange={(e) => handleMembreChange(index, e)}
-                />
-                <label htmlFor={`photo-upload-${index}`}>
-                  <Button variant="outlined" component="span" startIcon={<PhotoCameraIcon />} sx={{ mt: 1 }}>
-                    Choisir une photo
-                  </Button>
-                </label>
-                {membre.photoProfil && (
-                  <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
-                    <Avatar src={membre.photoProfil} alt={`Photo de Profil ${index + 1}`} sx={{ width: 100, height: 100 }} />
-                  </Box>
-                )}
-              </Box>
+      <Box component="form" onSubmit={handleSubmit} sx={{ maxWidth: 820, mx: 'auto', px: 2, mt: -6, pb: 'calc(env(safe-area-inset-bottom) + 120px)' }}>
+        {membres.map((membre, index) => (
+          <Card key={index} sx={{ mb: 2.5, boxShadow: '0 20px 50px rgba(31,20,16,.08)', animation: 'fadeUp .35s ease both' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 3, py: 2 }}>
+              <Avatar src={membre.photoProfil || undefined} sx={{ bgcolor: 'primary.main', width: 36, height: 36, fontSize: 14 }}>
+                {membre.nomComplet ? initials(membre.nomComplet) : index + 1}
+              </Avatar>
+              <Typography variant="h6" sx={{ flex: 1 }} noWrap>{membre.nomComplet || `Membre ${index + 1}`}</Typography>
+              {membres.length > 1 && (
+                <Tooltip title="Retirer ce membre">
+                  <IconButton onClick={() => setMembres((l) => l.filter((_, i) => i !== index))}><DeleteOutlineRoundedIcon /></IconButton>
+                </Tooltip>
+              )}
             </Box>
-          ))}
+            <Divider />
+            <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'center', sm: 'flex-start' } }}>
+                <PhotoPicker round size={104} value={membre.photoProfil} onChange={(v) => setAt(index)({ photoProfil: v })} label="Photo" />
+                <Box sx={{ flex: 1, width: '100%' }}><IdentityFields form={membre} set={setAt(index)} /></Box>
+              </Box>
+              <RoleHealthFields form={membre} set={setAt(index)} />
+            </Box>
+          </Card>
+        ))}
 
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 4 }}>
-            <Button
-              variant="outlined"
-              startIcon={<AddIcon />}
-              onClick={handleAjouterMembre}
-            >
-              Ajouter un Autre Membre
-            </Button>
-            <Button type="submit" variant="contained" color="primary" endIcon={<DoneIcon />}>
-              Continuer
-            </Button>
-          </Box>
+        <Button fullWidth variant="outlined" size="large" startIcon={<PersonAddAlt1RoundedIcon />}
+          onClick={() => setMembres((l) => [...l, emptyMember()])}
+          sx={{ borderStyle: 'dashed', borderWidth: 2, py: 2 }}>
+          Ajouter un autre membre
+        </Button>
+
+        <Box
+          sx={{
+            position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 10, display: 'flex', justifyContent: 'center', gap: 1.5,
+            px: 2, pt: 1.5, pb: 'calc(env(safe-area-inset-bottom) + 14px)',
+            bgcolor: 'background.paper', borderTop: '1px solid', borderColor: 'divider',
+          }}
+        >
+          <Button color="inherit" onClick={() => navigate('/famille-dashboard')} disabled={busy}>Plus tard</Button>
+          <Button type="submit" variant="contained" size="large" endIcon={<CheckRoundedIcon />} disabled={busy} sx={{ minWidth: 220 }}>
+            {busy ? 'Enregistrement…' : 'Enregistrer la famille'}
+          </Button>
         </Box>
-      </Paper>
-    </Container>
+      </Box>
+    </Box>
   );
 }
 
