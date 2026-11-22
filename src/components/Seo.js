@@ -3,7 +3,7 @@
 // de la page courante. À placer dans l'élément de chaque route.
 import { useEffect } from 'react';
 
-const SITE_URL = 'https://cuisineafricaineapp.web.app';
+const SITE_URL = 'https://libiyo.web.app';
 const SITE_NAME = 'Libiyo';
 
 const setMeta = (attr, key, content) => {

@@ -1,5 +1,13 @@
 {
   "projects": {
     "default": "cuisineafricaineapp"
+  },
+  "targets": {
+    "cuisineafricaineapp": {
+      "hosting": {
+        "app": ["libiyo"],
+        "legacy": ["cuisineafricaineapp"]
+      }
+    }
   }
 }

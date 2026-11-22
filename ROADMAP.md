@@ -18,7 +18,11 @@ Cochez les cases au fur et à mesure (`[x]`).
   - [ ] Supprimer les anciennes clés Gemini dans Google Cloud (projet « Automatisation n8n ») une fois tous les téléphones à jour.
 - [ ] Fiabiliser la connexion Google sur iPhone quand l'application est installée sur l'écran d'accueil. **(S)**
 - [ ] Demander l'indexation de la page d'accueil dans Google Search Console. **(S)**
-- [ ] Choisir un nom de marque distinctif et acheter un nom de domaine. **(S)**
+- [x] Nom de marque : **Libiyo — Le carnet de cuisine de la famille** (app renommée le 22/11/2026).
+- [x] Adresse **https://libiyo.web.app** ; l'ancienne `cuisineafricaineapp.web.app` redirige (301) page par page.
+- [ ] Search Console : ajouter la propriété `https://libiyo.web.app/` (fichier de validation déjà en ligne) et y envoyer `sitemap.xml`. **(S)**
+- [ ] Acheter `libiyo.com` (libre au 22/11/2026), le brancher sur Firebase Hosting et rediriger `cuisineafricaineapp.web.app`. **(S)**
+- [ ] Réserver @libiyo sur Instagram, Facebook, TikTok ; plus tard, déposer la marque à l'OAPI. **(S)**
 
 ## Phase 1 — Le marché et le budget (cœur de la différence)
 

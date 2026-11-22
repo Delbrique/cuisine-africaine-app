@@ -99,7 +99,7 @@ const exportPdf = async (contentHtml, markdown) => {
       </style>
       ${contentHtml}
       <div style="margin-top: 22px; padding-top: 8px; border-top: 1px solid #EADBC6; font-size: 8.5pt; color: #7A6457;">
-        Généré avec Libiyo · cuisineafricaineapp.web.app
+        Généré avec Libiyo · libiyo.web.app
       </div>
     </div>`;
   await html2pdf()
