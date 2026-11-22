@@ -86,7 +86,7 @@ const exportPdf = async (contentHtml, markdown) => {
   const html = `
     <div class="ca-pdf" style="font-family: Helvetica, Arial, sans-serif; color: #2A1A12; font-size: 12pt; line-height: 1.55; padding: 4px 6px;">
       <div style="display:flex; align-items:center; justify-content:space-between; border-bottom: 3px solid #C2461A; padding-bottom: 10px; margin-bottom: 18px;">
-        <div style="font-family: Georgia, serif; font-size: 20pt; font-weight: 700;">Cuisine <span style="color:#C2461A; font-style:italic;">Africaine</span></div>
+        <div style="font-family: Georgia, serif; font-size: 20pt; font-weight: 700;">Libi<span style="color:#C2461A; font-style:italic;">yo</span></div>
         <div style="font-size: 9pt; color: #7A6457; text-align:right;">Fiche du Chef IA<br/>${date}</div>
       </div>
       <style>
@@ -99,7 +99,7 @@ const exportPdf = async (contentHtml, markdown) => {
       </style>
       ${contentHtml}
       <div style="margin-top: 22px; padding-top: 8px; border-top: 1px solid #EADBC6; font-size: 8.5pt; color: #7A6457;">
-        Généré avec Cuisine Africaine · cuisineafricaineapp.web.app
+        Généré avec Libiyo · cuisineafricaineapp.web.app
       </div>
     </div>`;
   await html2pdf()

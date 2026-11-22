@@ -63,7 +63,7 @@ function Sidebar({ pathname }) {
       }}
     >
       <Box sx={{ px: 2.5, pt: 3, pb: 2.5 }}>
-        <Logo size={44} color={cream} subtitle="Le carnet de la famille" />
+        <Logo size={44} color={cream} subtitle="Le carnet de cuisine de la famille" />
       </Box>
       <Box component="nav" sx={{ flex: 1, overflowY: 'auto', px: 1.75, pb: 2 }}>
         {NAV_SECTIONS.map((section, i) => (
@@ -115,7 +115,7 @@ function MobileTopBar({ pathname }) {
       <Box sx={{ height: 60, px: 2, display: 'flex', alignItems: 'center', gap: 1.5 }}>
         <Box component="img" src={`${process.env.PUBLIC_URL}/logo.svg`} alt="" sx={{ width: 34, height: 34 }} />
         <Typography sx={{ flex: 1, fontFamily: '"Fraunces Variable", serif', fontWeight: 700, fontSize: 19 }} noWrap>
-          {current?.label || 'Cuisine Africaine'}
+          {current?.label || 'Libiyo'}
         </Typography>
         <ThemeToggle />
         <UserMenu variant="avatar" />

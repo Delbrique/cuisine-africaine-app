@@ -177,7 +177,7 @@ function ListeMarchePage() {
     doc.setFontSize(20);
     doc.text('Liste de marché', margin, 18);
     doc.setFontSize(10);
-    doc.text(`Cuisine Africaine · ${new Date().toLocaleDateString('fr-FR')}`, margin, 26);
+    doc.text(`Libiyo · ${new Date().toLocaleDateString('fr-FR')}`, margin, 26);
     y = 46;
     doc.setTextColor(42, 26, 18);
 
@@ -225,7 +225,7 @@ function ListeMarchePage() {
       const price = c.unit === null ? '' : ` — ${formatFcfa(c.total)}`;
       return `${i.checked ? '✅' : '▫️'} ${i.nom} : ${formatNumber(i.quantite)} ${i.uniteMesure || ''}${price}`;
     });
-    return `🛒 Liste de marché du ${new Date().toLocaleDateString('fr-FR')}\n\n${lines.join('\n')}\n\nTotal estimé : ${formatFcfa(total)}\n\n— Cuisine Africaine`;
+    return `🛒 Liste de marché du ${new Date().toLocaleDateString('fr-FR')}\n\n${lines.join('\n')}\n\nTotal estimé : ${formatFcfa(total)}\n\n— Libiyo`;
   };
 
   const familyEmails = membres.map((m) => m.email).filter((e) => e && e.includes('@'));
@@ -272,7 +272,7 @@ function ListeMarchePage() {
         body:
           `Bonjour ${m.nomComplet || ''},\n\n` +
           "Voici la liste de marché pour nos prochains repas ! N'oubliez pas que chaque dépense dans notre alimentation est un investissement dans notre bien-être et notre bonheur familial. Ensemble, faisons de chaque repas un moment spécial.\n\n" +
-          'La liste de marché est jointe à cet e-mail.\n\nMerci de votre contribution !\nL\'équipe Cuisine Africaine.',
+          'La liste de marché est jointe à cet e-mail.\n\nMerci de votre contribution !\nL\'équipe Libiyo.',
         attachment: { filename: `Liste_de_Marche_${today()}.pdf`, content, contentType: 'application/pdf' },
       }));
       const response = await fetch(process.env.REACT_APP_EMAIL_API_URL, {

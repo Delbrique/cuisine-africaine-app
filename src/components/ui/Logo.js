@@ -1,14 +1,14 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 
-/** Logo de l'application : marmite + mot-symbole. */
+/** Logo de Libiyo : marmite + mot-symbole « Libi*yo* ». */
 export default function Logo({ size = 40, showText = true, subtitle, color = 'text.primary', sx }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, ...sx }}>
       <Box
         component="img"
         src={`${process.env.PUBLIC_URL}/logo.svg`}
-        alt="Cuisine Africaine"
+        alt="Libiyo"
         sx={{ width: size, height: size, flexShrink: 0, filter: 'drop-shadow(0 6px 14px rgba(169,55,15,.28))' }}
       />
       {showText && (
@@ -25,8 +25,8 @@ export default function Logo({ size = 40, showText = true, subtitle, color = 'te
               whiteSpace: 'nowrap',
             }}
           >
-            Cuisine{' '}
-            <Box component="span" sx={{ color: color === 'text.primary' ? 'primary.main' : '#FFC857', fontStyle: 'italic' }}>Africaine</Box>
+            Libi
+            <Box component="span" sx={{ color: color === 'text.primary' ? 'primary.main' : '#FFC857', fontStyle: 'italic' }}>yo</Box>
           </Typography>
           {subtitle && (
             <Typography variant="caption" sx={{ color, opacity: 0.6, fontWeight: 600, letterSpacing: '0.04em' }}>
