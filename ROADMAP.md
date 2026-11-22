@@ -27,10 +27,12 @@ Cochez les cases au fur et à mesure (`[x]`).
 ## Phase 1 — Le marché et le budget (cœur de la différence)
 
 ### Prix réels en FCFA
-- [ ] Saisie des prix payés : produit, prix, unité (tas, kilo, botte…), marché, date. **(M)**
-- [ ] Base de prix par ville et par marché, alimentée par les familles (moyenne, plus bas, évolution). **(M)**
+- [x] Saisie des prix payés (« J'ai payé… ») : produit, prix, quantité, unité (kg, tas, botte…), lieu du répertoire.
+- [x] Base de prix partagée et anonyme : médiane, plus bas, plus haut, par marché, sur 90 jours glissants ; conversion d'unités (g/kg, ml/l).
+- [x] Prix de chaque article de la liste : prix de la famille, sinon prix relevés à Yaoundé (avec le nombre de relevés).
+- [x] Budget de la semaine : plafond, dépensé (privé à la famille), reste, alerte si la liste dépasse.
 - [ ] Coût de chaque plat et de chaque portion. **(S)**
-- [ ] Budget de la semaine : plafond, dépensé, reste, alerte de dépassement. **(M)**
+- [ ] Historique et évolution des prix d'un produit (graphique), comparaison entre marchés. **(M)**
 
 ### Marché et supermarché le plus proche
 - [x] Demander la position de l'utilisateur (avec son accord), ou la placer à la main sur la carte.

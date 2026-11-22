@@ -88,6 +88,29 @@ service cloud.firestore {
       allow update: if inFamille(resource.data.familleId) && unchanged('familleId');
     }
 
+    // ---------- Prix réels (relevés anonymes, partagés entre utilisateurs connectés) ----------
+    function validReleve(d) {
+      return d.cle is string && d.cle.size() > 0 && d.cle.size() <= 80
+        && d.nom is string && d.nom.size() <= 120
+        && d.prixUnitaire is number && d.prixUnitaire > 0 && d.prixUnitaire < 100000000
+        && d.unite is string && d.unite.size() <= 20
+        && !('familleId' in d);
+    }
+    match /prix/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.auteurUid == me() && validReleve(request.resource.data);
+      allow update: if signedIn() && resource.data.auteurUid == me() && unchanged('auteurUid') && validReleve(request.resource.data);
+      allow delete: if signedIn() && resource.data.auteurUid == me();
+    }
+
+    // ---------- Dépenses (privées à la famille) ----------
+    match /depenses/{id} {
+      allow read, delete: if inFamille(resource.data.familleId);
+      allow create: if inFamille(request.resource.data.familleId)
+        && request.resource.data.montant is number && request.resource.data.montant > 0;
+      allow update: if inFamille(resource.data.familleId) && unchanged('familleId');
+    }
+
     // ---------- Messagerie ----------
     function groupData(gid) { return get(/databases/$(database)/documents/groups/$(gid)).data; }
     function isGroupMember(gid) {

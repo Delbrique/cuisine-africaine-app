@@ -1,8 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Box, Button, ButtonBase, Card, Checkbox, CircularProgress, IconButton, LinearProgress, ListItemIcon, ListItemText, Menu, MenuItem,
-  Tooltip, Typography,
+  Box, Button, ButtonBase, Card, Checkbox, CircularProgress, IconButton, InputAdornment, LinearProgress, ListItemIcon, ListItemText, Menu, MenuItem,
+  TextField, Tooltip, Typography,
 } from '@mui/material';
+import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import UndoRoundedIcon from '@mui/icons-material/UndoRounded';
 import ShoppingBasketRoundedIcon from '@mui/icons-material/ShoppingBasketRounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded';
@@ -15,7 +18,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import RadioButtonUncheckedRoundedIcon from '@mui/icons-material/RadioButtonUncheckedRounded';
 import jsPDF from 'jspdf';
-import { enqueueSnackbar } from 'notistack';
+import { closeSnackbar, enqueueSnackbar } from 'notistack';
 
 import { updateIngredientStock, getIngredientById, getIngredients } from '../../services/ingredientService';
 import { SHOPPING_EVENT, dismissAuto, readShoppingList, writeShoppingList } from '../../services/shoppingList';
@@ -25,6 +28,10 @@ import { getMembres } from '../../services/membreService';
 import { EmptyState, PageHeader, patternBg, useConfirm } from '../../components/ui';
 import { formatFcfa, formatNumber, friendlyError } from '../../utils';
 import { tint } from '../../theme/theme';
+import {
+  annulerAchat, depensesSemaine, getBudget, ilYa, prixCommunautaire, setBudget, statsPrix,
+} from '../../services/prixService';
+import NoterPrixDialog from './NoterPrixDialog';
 
 const blobToBase64 = (blob) =>
   new Promise((resolve, reject) => {
@@ -55,7 +62,13 @@ const aggregateIngredients = (meals, plats, stock) => {
   return Object.values(agg);
 };
 
-function Item({ item, cost, onToggle, onRemove }) {
+const SOURCE_LABEL = {
+  famille: 'votre prix',
+  communaute: (n) => `prix Yaoundé · ${n} relevé${n > 1 ? 's' : ''}`,
+  memorise: 'prix mémorisé',
+};
+
+function Item({ item, cost, onToggle, onRemove, onNoterPrix }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, pl: 0.5, pr: 1, borderRadius: 3, transition: 'background .15s', '&:hover': { bgcolor: 'sand.main' }, '&:hover .rm': { opacity: 1 } }}>
       <Checkbox
@@ -79,9 +92,21 @@ function Item({ item, cost, onToggle, onRemove }) {
           {cost.unit === null ? 'Prix ?' : formatFcfa(cost.total)}
         </Typography>
         {cost.unit !== null && (
-          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>{formatFcfa(cost.unit)} / {item.uniteMesure || 'unité'}</Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', display: 'block' }}>
+            {formatFcfa(cost.unit)} / {item.uniteMesure || 'unité'}
+          </Typography>
+        )}
+        {cost.source && (
+          <Typography variant="caption" sx={{ whiteSpace: 'nowrap', color: cost.source === 'communaute' ? 'secondary.main' : 'text.secondary', fontWeight: 600 }}>
+            {cost.source === 'communaute' ? SOURCE_LABEL.communaute(cost.n) : SOURCE_LABEL[cost.source]}
+          </Typography>
         )}
       </Box>
+      <Tooltip title="J'ai payé… (noter le prix réel)">
+        <IconButton size="small" onClick={onNoterPrix} aria-label="Noter le prix payé" sx={{ color: 'secondary.main' }}>
+          <ReceiptLongRoundedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
       <Tooltip title="Retirer de la liste">
         <IconButton className="rm" size="small" onClick={onRemove} sx={{ opacity: { xs: 1, md: 0 } }}><CloseRoundedIcon fontSize="small" /></IconButton>
       </Tooltip>
@@ -96,7 +121,32 @@ function ListeMarchePage() {
   const [membres, setMembres] = useState([]);
   const [busy, setBusy] = useState('');
   const [menu, setMenu] = useState(null);
+  const [stats, setStats] = useState(null); // prix de la communauté
+  const [noter, setNoter] = useState({ open: false, item: null });
+  const [budget, setBudgetState] = useState(0);
+  const [depenses, setDepenses] = useState([]);
+  const [editBudget, setEditBudget] = useState(null); // valeur en cours de saisie
   const confirm = useConfirm();
+
+  const loadBudget = useCallback(async () => {
+    try {
+      const [b, d] = await Promise.all([getBudget(), depensesSemaine()]);
+      setBudgetState(b);
+      setDepenses(d);
+    } catch (err) {
+      console.error('Budget indisponible :', err);
+    }
+  }, []);
+
+  useEffect(() => { loadBudget(); }, [loadBudget]);
+
+  // Prix de la communauté pour les articles de la liste (rechargés quand la liste change de produits).
+  const nomsListe = useMemo(() => [...new Set(shoppingList.map((i) => i.nom).filter(Boolean))].sort().join('|'), [shoppingList]);
+  const loadStats = useCallback(() => {
+    if (!nomsListe) { setStats(new Map()); return; }
+    statsPrix(nomsListe.split('|')).then(setStats).catch((err) => { console.error('Prix communautaires indisponibles :', err); setStats(new Map()); });
+  }, [nomsListe]);
+  useEffect(() => { loadStats(); }, [loadStats]);
 
   const fetchData = async () => {
     try {
@@ -290,21 +340,124 @@ function ListeMarchePage() {
     }
   };
 
-  // Prix toujours lu en direct dans le catalogue d'ingrédients (l'ancien prix mémorisé ne sert
-  // que si l'ingrédient a été supprimé). Une modification de prix se répercute donc immédiatement.
+  // Prix d'un article, par ordre de priorité :
+  // 1. le prix de la famille (catalogue d'ingrédients), lu en direct ;
+  // 2. le prix médian relevé par les familles de Yaoundé (90 derniers jours) ;
+  // 3. l'ancien prix mémorisé dans la liste.
   const priceOf = (item) => {
     const ing = stock.find((s) => s.id === item.ingredientId);
     const live = parseFloat(ing?.prix);
-    if (!Number.isNaN(live)) return live;
+    if (live > 0) return { value: live, source: 'famille' };
+    const com = prixCommunautaire(stats, item.nom, item.uniteMesure || '');
+    if (com) return { value: com.prix, source: 'communaute', n: com.n };
     const saved = parseFloat(item.prixUnitaire);
-    return saved > 0 ? saved : null; // null = prix inconnu
+    return saved > 0 ? { value: saved, source: 'memorise' } : { value: null, source: null };
   };
   const cost = (item) => {
-    const unit = priceOf(item);
-    return { unit, total: (unit || 0) * (parseFloat(item.quantite) || 0) };
+    const p = priceOf(item);
+    return { unit: p.value, source: p.source, n: p.n, total: (p.value || 0) * (parseFloat(item.quantite) || 0) };
   };
   const total = shoppingList.reduce((s, i) => s + cost(i).total, 0);
-  const missingPrices = shoppingList.filter((i) => priceOf(i) === null).length;
+  const missingPrices = shoppingList.filter((i) => priceOf(i).value === null).length;
+  const depense = depenses.reduce((s, d) => s + (Number(d.montant) || 0), 0);
+  const resteBudget = budget - depense;
+
+  const ouvrirNoter = (item) => setNoter({ open: true, item });
+  const apresAchat = () => { loadBudget(); loadStats(); fetchData(); };
+
+  const enregistrerBudget = async () => {
+    const v = Math.max(0, Math.round(Number(editBudget) || 0));
+    setEditBudget(null);
+    try {
+      await setBudget(v);
+      setBudgetState(v);
+      enqueueSnackbar(`Budget de la semaine : ${formatFcfa(v)}.`, { variant: 'success' });
+    } catch (err) {
+      enqueueSnackbar(friendlyError(err), { variant: 'error' });
+    }
+  };
+
+  const pctBudget = budget > 0 ? Math.min(100, (depense / budget) * 100) : 0;
+  const budgetCard = (
+    <Card sx={{ p: 2.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="overline" color="text.secondary">Budget de la semaine</Typography>
+        {editBudget === null && (
+          <Tooltip title="Modifier le budget">
+            <IconButton size="small" onClick={() => setEditBudget(budget ? String(budget) : '')} aria-label="Modifier le budget"><EditRoundedIcon fontSize="small" /></IconButton>
+          </Tooltip>
+        )}
+      </Box>
+      {editBudget !== null ? (
+        <Box component="form" onSubmit={(e) => { e.preventDefault(); enregistrerBudget(); }} sx={{ display: 'flex', gap: 1, mt: 1 }}>
+          <TextField
+            size="small" type="number" autoFocus value={editBudget} onChange={(e) => setEditBudget(e.target.value)} sx={{ flex: 1 }}
+            inputProps={{ min: 0, step: 1, inputMode: 'numeric' }} InputProps={{ endAdornment: <InputAdornment position="end">FCFA</InputAdornment> }}
+          />
+          <Button type="submit" variant="contained">OK</Button>
+        </Box>
+      ) : budget > 0 ? (
+        <>
+          <Typography sx={{ fontFamily: '"Fraunces Variable", serif', fontWeight: 700, fontSize: 28, lineHeight: 1.1 }}>{formatFcfa(budget)}</Typography>
+          <LinearProgress
+            variant="determinate" value={pctBudget} sx={{ my: 1.5 }}
+            color={depense > budget ? 'error' : pctBudget > 85 ? 'warning' : 'secondary'}
+          />
+          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Typography variant="body2">Dépensé : <b>{formatFcfa(depense)}</b></Typography>
+            <Typography variant="body2" sx={{ color: resteBudget < 0 ? 'error.main' : 'text.primary' }}>
+              {resteBudget < 0 ? 'Dépassé : ' : 'Reste : '}<b>{formatFcfa(Math.abs(resteBudget))}</b>
+            </Typography>
+          </Box>
+          {shoppingList.length > 0 && total > Math.max(0, resteBudget) && (
+            <Typography variant="body2" sx={{ mt: 1.5, color: 'warning.main', fontWeight: 600 }}>
+              La liste ({formatFcfa(total)}) dépasse ce qu'il reste du budget.
+            </Typography>
+          )}
+        </>
+      ) : (
+        <Box sx={{ mt: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            Fixez un budget pour suivre vos dépenses de marché de la semaine.
+          </Typography>
+          <Button variant="outlined" size="small" onClick={() => setEditBudget('')}>Définir mon budget</Button>
+          {depense > 0 && <Typography variant="body2" sx={{ mt: 1.5 }}>Dépensé cette semaine : <b>{formatFcfa(depense)}</b></Typography>}
+        </Box>
+      )}
+
+      {depenses.length > 0 && (
+        <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>ACHATS DE LA SEMAINE</Typography>
+          {depenses.slice(0, 6).map((d) => (
+            <Box key={d.id} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.75 }}>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="body2" sx={{ fontWeight: 650 }} noWrap>{d.nom}</Typography>
+                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+                  {[ilYa(d.date), d.lieuNom].filter(Boolean).join(' · ')}
+                </Typography>
+              </Box>
+              <Typography variant="body2" sx={{ fontWeight: 700, whiteSpace: 'nowrap' }}>{formatFcfa(d.montant)}</Typography>
+              <Tooltip title="Annuler cet achat">
+                <IconButton size="small" onClick={() => annuler(d)} aria-label="Annuler cet achat"><UndoRoundedIcon fontSize="small" /></IconButton>
+              </Tooltip>
+            </Box>
+          ))}
+          {depenses.length > 6 && <Typography variant="caption" color="text.secondary">+ {depenses.length - 6} autre(s)</Typography>}
+        </Box>
+      )}
+    </Card>
+  );
+
+  const annuler = async (d) => {
+    if (!(await confirm({ title: `Annuler l'achat « ${d.nom} » ?`, message: `${formatFcfa(d.montant)} seront retirés des dépenses de la semaine.`, confirmLabel: 'Annuler l\'achat' }))) return;
+    try {
+      await annulerAchat(d);
+      loadBudget();
+      loadStats();
+    } catch (err) {
+      enqueueSnackbar(friendlyError(err), { variant: 'error' });
+    }
+  };
   const remaining = shoppingList.filter((i) => !i.checked);
   const done = shoppingList.filter((i) => i.checked);
   const progress = shoppingList.length ? (done.length / shoppingList.length) * 100 : 0;
@@ -336,6 +489,16 @@ function ListeMarchePage() {
       enqueueSnackbar(`Stock non mis à jour : ${friendlyError(err)}`, { variant: 'error' });
     }
     update(readShoppingList().map((i) => (i.ingredientId === id ? { ...i, checked, stocked } : i)));
+    // Article acheté : on propose de noter le prix réel payé.
+    if (checked) {
+      enqueueSnackbar(`Combien avez-vous payé « ${item.nom} » ?`, {
+        variant: 'info',
+        autoHideDuration: 7000,
+        action: (key) => (
+          <Button color="inherit" size="small" onClick={() => { closeSnackbar(key); ouvrirNoter(item); }}>Noter le prix</Button>
+        ),
+      });
+    }
   };
   const remove = (id) => {
     if (shoppingList.find((i) => i.ingredientId === id)?.auto) dismissAuto(id);
@@ -376,13 +539,16 @@ function ListeMarchePage() {
       </Menu>
 
       {shoppingList.length === 0 ? (
-        <EmptyState
-          icon={<ShoppingBasketRoundedIcon />} title="Votre panier est vide"
-          description="Générez la liste à partir du planning de la semaine, ou ajoutez les ingrédients d'un plat depuis le planning."
-          action={<Button variant="contained" startIcon={<AutoAwesomeRoundedIcon />} onClick={handleGenerate} disabled={Boolean(busy)}>Générer la liste</Button>}
-        />
+        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1fr) 320px' }, alignItems: 'start' }}>
+          <EmptyState
+            icon={<ShoppingBasketRoundedIcon />} title="Votre panier est vide"
+            description="Générez la liste à partir du planning de la semaine, ou ajoutez les ingrédients d'un plat depuis le planning."
+            action={<Button variant="contained" startIcon={<AutoAwesomeRoundedIcon />} onClick={handleGenerate} disabled={Boolean(busy)}>Générer la liste</Button>}
+          />
+          {budgetCard}
+        </Box>
       ) : (
-        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1fr) 300px' }, alignItems: 'start' }}>
+        <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1fr) 320px' }, alignItems: 'start' }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
             <Card sx={{ p: 1.5 }}>
               <Typography variant="overline" color="text.secondary" sx={{ px: 1.5 }}>À acheter · {remaining.length}</Typography>
@@ -391,19 +557,20 @@ function ListeMarchePage() {
                   <CheckCircleRoundedIcon /><Typography sx={{ fontWeight: 700 }}>Tout est dans le panier, bon retour du marché !</Typography>
                 </Box>
               ) : (
-                remaining.map((i) => <Item key={i.ingredientId} item={i} cost={cost(i)} onToggle={() => toggle(i.ingredientId)} onRemove={() => remove(i.ingredientId)} />)
+                remaining.map((i) => <Item key={i.ingredientId} item={i} cost={cost(i)} onToggle={() => toggle(i.ingredientId)} onRemove={() => remove(i.ingredientId)} onNoterPrix={() => ouvrirNoter(i)} />)
               )}
             </Card>
             {done.length > 0 && (
               <Card sx={{ p: 1.5, opacity: 0.85 }}>
                 <Typography variant="overline" color="text.secondary" sx={{ px: 1.5 }}>Dans le panier · {done.length}</Typography>
-                {done.map((i) => <Item key={i.ingredientId} item={i} cost={cost(i)} onToggle={() => toggle(i.ingredientId)} onRemove={() => remove(i.ingredientId)} />)}
+                {done.map((i) => <Item key={i.ingredientId} item={i} cost={cost(i)} onToggle={() => toggle(i.ingredientId)} onRemove={() => remove(i.ingredientId)} onNoterPrix={() => ouvrirNoter(i)} />)}
               </Card>
             )}
           </Box>
 
-          <Box sx={{ position: { md: 'sticky' }, top: { md: 24 }, borderRadius: 6, p: 3, color: '#FFF3E0', background: `${patternBg('#FFF3E0', 0.1)}, linear-gradient(140deg, #2F8F5B, #1F6B42)`, boxShadow: '0 20px 50px rgba(31,107,66,.3)' }}>
-            <Typography variant="overline" sx={{ opacity: 0.8 }}>Budget estimé</Typography>
+          <Box sx={{ position: { md: 'sticky' }, top: { md: 24 }, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+          <Box sx={{ borderRadius: 6, p: 3, color: '#FFF3E0', background: `${patternBg('#FFF3E0', 0.1)}, linear-gradient(140deg, #2F8F5B, #1F6B42)`, boxShadow: '0 20px 50px rgba(31,107,66,.3)' }}>
+            <Typography variant="overline" sx={{ opacity: 0.8 }}>Coût estimé de la liste</Typography>
             <Typography sx={{ fontFamily: '"Fraunces Variable", serif', fontWeight: 700, fontSize: { xs: 34, md: 30, lg: 34 }, lineHeight: 1.1, mb: 2.5, overflowWrap: 'anywhere' }}>{formatFcfa(total)}</Typography>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography sx={{ fontWeight: 650 }}>Progression</Typography>
@@ -415,12 +582,22 @@ function ListeMarchePage() {
             </Typography>
             <Typography variant="caption" sx={{ display: 'block', mt: 1.5, opacity: 0.75 }}>
               {missingPrices > 0
-                ? `${missingPrices} article(s) sans prix : renseignez-le dans « Ingrédients ».`
-                : 'Prix à jour selon votre catalogue d\'ingrédients.'}
+                ? `${missingPrices} article(s) sans prix : au marché, touchez l'icône « reçu » pour noter ce que vous payez.`
+                : 'Vos prix, complétés par les prix relevés à Yaoundé.'}
             </Typography>
+          </Box>
+          {budgetCard}
           </Box>
         </Box>
       )}
+
+      <NoterPrixDialog
+        open={noter.open}
+        item={noter.item}
+        ingredient={noter.item ? stock.find((s) => s.id === noter.item.ingredientId) : null}
+        onClose={() => setNoter({ open: false, item: null })}
+        onSaved={apresAchat}
+      />
     </Box>
   );
 }
