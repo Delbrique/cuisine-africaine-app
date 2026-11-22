@@ -6,7 +6,8 @@ import { Alert, Box, Button, Link as MuiLink, Step, StepLabel, Stepper, TextFiel
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import { auth } from '../firebase/firebase';
-import { createMembre } from '../services/membreService';
+import { updateMembre } from '../services/membreService';
+import { ensureFamily, renameFamille } from '../services/familleService';
 import { useAuth } from '../auth/AuthContext';
 import { friendlyError } from '../utils';
 import { PhotoPicker } from './ui';
@@ -38,7 +39,10 @@ function InscriptionPage() {
     setBusy(true);
     try {
       const { user } = await createUserWithEmailAndPassword(auth, form.email, password);
-      await createMembre({ ...toMembre({ ...form, email: user.email }, { basic: true }), uid: user.uid });
+      // Crée la famille privée du compte et sa fiche, puis y enregistre le profil saisi.
+      const profile = await ensureFamily(user);
+      await updateMembre(user.uid, toMembre({ ...form, email: user.email }, { basic: true }));
+      if (profile?.admin && form.nomComplet) await renameFamille(`Famille ${form.nomComplet}`, profile.familleId).catch(() => {});
       await refreshProfile();
       navigate('/configurer-famille', { replace: true });
     } catch (err) {

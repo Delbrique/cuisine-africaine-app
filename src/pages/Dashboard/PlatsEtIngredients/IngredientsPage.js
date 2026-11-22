@@ -10,7 +10,9 @@ import { enqueueSnackbar } from 'notistack';
 import {
   createIngredient, listenIngredients, updateIngredient, deleteIngredient, INGREDIENT_STATUS,
 } from '../../../services/ingredientService';
-import { EmptyState, FilterChips, LoadingGrid, PageHeader, useConfirm } from '../../../components/ui';
+import {
+  EmptyState, FilterChips, LoadingGrid, PageHeader, SelectCheck, SelectionBar, SelectToggleButton, selectableSx, useConfirm, useSelection,
+} from '../../../components/ui';
 import { asText, formatFcfa, friendlyError, normalize } from '../../../utils';
 import { tint } from '../../../theme/theme';
 import IngredientEditor from './IngredientEditor';
@@ -20,7 +22,9 @@ function IngredientsPage() {
   const [category, setCategory] = useState('');
   const [search, setSearch] = useState('');
   const [editor, setEditor] = useState({ open: false, ingredient: null });
+  const [busy, setBusy] = useState(false);
   const confirm = useConfirm();
+  const selection = useSelection((ingredients || []).map((i) => i.id));
 
   // Temps réel : la liste suit les modifications faites ailleurs (stock, autre appareil…).
   useEffect(
@@ -54,6 +58,7 @@ function IngredientsPage() {
       enqueueSnackbar('Ingrédient ajouté !', { variant: 'success' });
     }
     setEditor({ open: false, ingredient: null });
+    selection.clear();
   };
 
   const remove = async (ing) => {
@@ -66,13 +71,40 @@ function IngredientsPage() {
     }
   };
 
+  const chosen = (ingredients || []).filter((i) => selection.isSelected(i.id));
+
+  const removeSelected = async () => {
+    if (chosen.length === 1) {
+      await remove(chosen[0]);
+      return;
+    }
+    const ok = await confirm({
+      title: `Supprimer ${chosen.length} ingrédients ?`,
+      message: `${chosen.slice(0, 4).map((i) => `« ${i.nom} »`).join(', ')}${chosen.length > 4 ? ` et ${chosen.length - 4} autre(s)` : ''} seront aussi retirés de votre stock.`,
+      confirmLabel: `Supprimer (${chosen.length})`,
+    });
+    if (!ok) return;
+    setBusy(true);
+    const results = await Promise.allSettled(chosen.map((i) => deleteIngredient(i.id)));
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    setBusy(false);
+    if (failed) enqueueSnackbar(`${chosen.length - failed} ingrédient(s) supprimé(s), ${failed} échec(s).`, { variant: 'warning' });
+    else enqueueSnackbar(`${chosen.length} ingrédients supprimés.`, { variant: 'success' });
+    selection.clear();
+  };
+
   return (
-    <Box>
+    <Box sx={{ pb: selection.selecting ? 12 : 0 }}>
       <PageHeader
         eyebrow="Cuisine"
         title="Ingrédients"
         subtitle="Le catalogue de base de vos recettes, avec leur prix au marché."
-        actions={<Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setEditor({ open: true, ingredient: null })}>Nouvel ingrédient</Button>}
+        actions={
+          <>
+            {ingredients && ingredients.length > 0 && <SelectToggleButton selection={selection} />}
+            <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setEditor({ open: true, ingredient: null })}>Nouvel ingrédient</Button>
+          </>
+        }
       />
 
       {ingredients && ingredients.length > 0 && (
@@ -96,9 +128,12 @@ function IngredientsPage() {
         />
       ) : (
         <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))' }}>
-          {filtered.map((ing) => (
-            <Card key={ing.id} sx={{ display: 'flex', alignItems: 'center', transition: 'all .2s', '&:hover': { borderColor: 'primary.main' }, '&:hover .del': { opacity: 1 } }}>
-              <ButtonBase onClick={() => setEditor({ open: true, ingredient: ing })} sx={{ flex: 1, minWidth: 0, justifyContent: 'flex-start', gap: 1.75, p: 1.5, textAlign: 'left' }}>
+          {filtered.map((ing) => {
+            const checked = selection.isSelected(ing.id);
+            return (
+            <Card key={ing.id} sx={{ ...selectableSx(checked), overflow: 'visible', display: 'flex', alignItems: 'center', transition: 'all .2s', '&:hover': { borderColor: 'primary.main' }, '&:hover .del': { opacity: 1 }, '&:hover .sel-check': { opacity: 1 } }}>
+              <SelectCheck checked={checked} selecting={selection.selecting} onToggle={() => selection.toggle(ing.id)} sx={{ top: 4, left: 4, width: 26, height: 26 }} />
+              <ButtonBase onClick={() => (selection.selecting ? selection.toggle(ing.id) : setEditor({ open: true, ingredient: ing }))} sx={{ flex: 1, minWidth: 0, justifyContent: 'flex-start', gap: 1.75, p: 1.5, textAlign: 'left', borderRadius: '20px' }}>
                 <Avatar src={ing.photoURL || undefined} sx={{ width: 52, height: 52, borderRadius: '16px', bgcolor: tint('secondary', 0.14), color: 'secondary.main', fontFamily: '"Fraunces Variable", serif', fontSize: 22 }}>
                   {(ing.nom || '?').charAt(0).toUpperCase()}
                 </Avatar>
@@ -109,15 +144,25 @@ function IngredientsPage() {
                   </Typography>
                 </Box>
               </ButtonBase>
-              <Tooltip title="Supprimer">
-                <IconButton className="del" onClick={() => remove(ing)} sx={{ mr: 1, opacity: { xs: 1, md: 0 }, transition: 'opacity .2s' }}>
-                  <DeleteOutlineRoundedIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
+              {!selection.selecting && (
+                <Tooltip title="Supprimer">
+                  <IconButton className="del" onClick={() => remove(ing)} sx={{ mr: 1, opacity: { xs: 1, md: 0 }, transition: 'opacity .2s' }}>
+                    <DeleteOutlineRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Card>
-          ))}
+            );
+          })}
         </Box>
       )}
+
+      <SelectionBar
+        selection={selection} noun="ingrédient" total={filtered.length} busy={busy}
+        onSelectAll={() => selection.selectAll(filtered.map((i) => i.id))}
+        onEdit={() => chosen[0] && setEditor({ open: true, ingredient: chosen[0] })}
+        onDelete={removeSelected}
+      />
       {ingredients && ingredients.length > 0 && filtered.length === 0 && (
         <Typography color="text.secondary" sx={{ py: 6, textAlign: 'center' }}>Aucun ingrédient ne correspond.</Typography>
       )}

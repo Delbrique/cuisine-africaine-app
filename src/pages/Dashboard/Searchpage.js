@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
-  Alert, Avatar, Box, ButtonBase, Card, IconButton, InputAdornment, InputBase, Tab, Tabs, TextField, Tooltip, Typography, useMediaQuery,
+  Alert, Avatar, Box, Button, ButtonBase, Card, CircularProgress, IconButton, InputAdornment, InputBase, Tab, Tabs, TextField, Tooltip, Typography, useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -10,6 +10,7 @@ import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import RestaurantMenuRoundedIcon from '@mui/icons-material/RestaurantMenuRounded';
 import TimerRoundedIcon from '@mui/icons-material/TimerRounded';
+import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded';
 
 import { getPlats } from '../../services/platService';
 import { GEMINI_API_KEY, generateText } from '../../services/gemini';
@@ -37,12 +38,21 @@ const SUGGESTIONS = [
   'Conseils nutritionnels pour enfants',
 ];
 
-const createContextualPrompt = (userMessage, plats) => {
+// L'utilisateur demande-t-il un document à télécharger ?
+const PDF_REQUEST = /\b(pdf|t[ée]l[ée]charg\w*|imprim\w*|document|fichier|fiche)\b/i;
+
+const createContextualPrompt = (userMessage, plats, history = []) => {
   const ctx = plats.length
     ? `\n\nContexte des recettes disponibles dans l'application:\n${plats
         .slice(0, 10)
         .map((p) => `- ${p.nom} (${p.categoriePlat || 'Non catégorisé'}): ${p.description || 'Pas de description'}`)
         .join('\n')}`
+    : '';
+  // Derniers échanges, pour comprendre « cette recette », « mets-la en PDF »…
+  const conv = history.length
+    ? `\n\nDerniers échanges de la conversation (du plus ancien au plus récent):\n${history
+        .map((m) => `${m.type === 'user' ? 'Utilisateur' : 'Assistant'}: ${m.message.slice(0, 1500)}`)
+        .join('\n\n')}`
     : '';
   return `Tu es un assistant culinaire expert spécialisé dans la cuisine camerounaise, africaine et internationale. Tu dois répondre uniquement aux questions liées à :
 - La cuisine et les recettes (traditionnelles camerounaises, africaines, internationales)
@@ -58,15 +68,71 @@ IMPORTANT:
 - Donne des informations pratiques avec des prix approximatifs en FCFA quand pertinent
 - Mentionne les alternatives locales camerounaises quand possible
 - Sois précis sur les quantités, temps de cuisson, et techniques
-${ctx}
+- L'application exporte automatiquement tes réponses en PDF (un bouton « Télécharger le PDF » apparaît sous ta réponse). Ne dis JAMAIS que tu ne peux pas créer de PDF ou de fichier. Si l'utilisateur demande un PDF, une fiche ou un document, rédige directement le contenu complet et bien structuré (titre avec #, sections avec ##, listes d'ingrédients avec quantités, étapes numérotées), sans phrase sur le format du fichier. S'il parle d'une recette évoquée plus tôt, reprends-la en entier.
+${ctx}${conv}
 
 Question de l'utilisateur: ${userMessage}
 
 Réponds en français de manière claire et utile:`;
 };
 
+const slug = (s) => normalize(s || '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 50) || 'recette';
+
+/** Exporte le contenu (HTML déjà rendu du markdown) d'une réponse du Chef IA en PDF. */
+const exportPdf = async (contentHtml, markdown) => {
+  const { default: html2pdf } = await import('html2pdf.js');
+  const title = (markdown.match(/^#{1,3}\s+(.+)$/m)?.[1] || 'Recette').replace(/[*_`]/g, '').trim();
+  const date = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+  const html = `
+    <div class="ca-pdf" style="font-family: Helvetica, Arial, sans-serif; color: #2A1A12; font-size: 12pt; line-height: 1.55; padding: 4px 6px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; border-bottom: 3px solid #C2461A; padding-bottom: 10px; margin-bottom: 18px;">
+        <div style="font-family: Georgia, serif; font-size: 20pt; font-weight: 700;">Cuisine <span style="color:#C2461A; font-style:italic;">Africaine</span></div>
+        <div style="font-size: 9pt; color: #7A6457; text-align:right;">Fiche du Chef IA<br/>${date}</div>
+      </div>
+      <style>
+        .ca-pdf h1, .ca-pdf h2, .ca-pdf h3 { font-family: Georgia, serif; color: #8F2F0E; margin: 16px 0 6px; page-break-after: avoid; }
+        .ca-pdf h1 { font-size: 18pt; } .ca-pdf h2 { font-size: 14pt; } .ca-pdf h3 { font-size: 12.5pt; }
+        .ca-pdf p { margin: 0 0 8px; } .ca-pdf ul, .ca-pdf ol { margin: 0 0 10px; padding-left: 22px; }
+        .ca-pdf li { margin-bottom: 4px; page-break-inside: avoid; } .ca-pdf strong { color: #2A1A12; }
+        .ca-pdf table { border-collapse: collapse; width: 100%; margin: 8px 0; }
+        .ca-pdf td, .ca-pdf th { border: 1px solid #EADBC6; padding: 5px 8px; text-align: left; } .ca-pdf th { background: #F4E9DA; }
+      </style>
+      ${contentHtml}
+      <div style="margin-top: 22px; padding-top: 8px; border-top: 1px solid #EADBC6; font-size: 8.5pt; color: #7A6457;">
+        Généré avec Cuisine Africaine · cuisineafricaineapp.web.app
+      </div>
+    </div>`;
+  await html2pdf()
+    .set({
+      margin: [12, 12, 14, 12],
+      filename: `Chef-IA_${slug(title)}.pdf`,
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: '#FFFFFF' },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak: { mode: ['css', 'legacy'] },
+    })
+    .from(html)
+    .save();
+};
+
 function Bubble({ msg, userName, userPhoto }) {
   const mine = msg.type === 'user';
+  const contentRef = useRef(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const canExport = !mine && msg.id !== WELCOME.id && !msg.error;
+
+  const download = async () => {
+    if (!contentRef.current) return;
+    setPdfBusy(true);
+    try {
+      await exportPdf(contentRef.current.innerHTML, msg.message);
+    } catch (err) {
+      console.error('Erreur PDF :', err);
+      alert('Le PDF n’a pas pu être créé. Réessayez.');
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
   return (
     <Box sx={{ display: 'flex', gap: 1.25, flexDirection: mine ? 'row-reverse' : 'row', alignItems: 'flex-end', animation: 'fadeUp .3s ease both' }}>
       {mine ? (
@@ -84,10 +150,30 @@ function Bubble({ msg, userName, userPhoto }) {
           '& li': { mb: 0.4 }, '& h1, & h2, & h3': { fontSize: 16, mt: 1.5, mb: 0.5 }, '& strong': { fontWeight: 750 },
         }}
       >
-        {mine ? <Typography sx={{ whiteSpace: 'pre-line' }}>{msg.message}</Typography> : <ReactMarkdown>{msg.message}</ReactMarkdown>}
-        <Typography variant="caption" sx={{ display: 'block', textAlign: 'right', opacity: 0.6, mt: 0.5 }}>
-          {msg.timestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-        </Typography>
+        {mine ? <Typography sx={{ whiteSpace: 'pre-line' }}>{msg.message}</Typography> : <div ref={contentRef}><ReactMarkdown>{msg.message}</ReactMarkdown></div>}
+        {canExport && msg.wantsPdf && (
+          <Button
+            onClick={download} disabled={pdfBusy} variant="contained" fullWidth
+            startIcon={pdfBusy ? <CircularProgress size={16} color="inherit" /> : <PictureAsPdfRoundedIcon />}
+            sx={{ mt: 1.5 }}
+          >
+            {pdfBusy ? 'Création du PDF…' : 'Télécharger le PDF'}
+          </Button>
+        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5, mt: 0.5 }}>
+          {canExport && !msg.wantsPdf && (
+            <Tooltip title="Télécharger en PDF">
+              <span>
+                <IconButton size="small" onClick={download} disabled={pdfBusy} sx={{ p: 0.4, opacity: 0.7 }} aria-label="Télécharger en PDF">
+                  {pdfBusy ? <CircularProgress size={14} /> : <PictureAsPdfRoundedIcon sx={{ fontSize: 17 }} />}
+                </IconButton>
+              </span>
+            </Tooltip>
+          )}
+          <Typography variant="caption" sx={{ opacity: 0.6 }}>
+            {msg.timestamp.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+          </Typography>
+        </Box>
       </Box>
     </Box>
   );
@@ -103,27 +189,33 @@ function Assistant({ plats, height }) {
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages, thinking]);
 
-  const answer = async (text) => {
+  const answer = async (text, history) => {
     try {
-      const out = await generateText(createContextualPrompt(text, plats));
-      return out?.trim() || "Désolé, je n'ai pas pu générer de réponse. Pouvez-vous reformuler votre question ?";
+      const out = await generateText(createContextualPrompt(text, plats, history));
+      return { text: out?.trim() || "Désolé, je n'ai pas pu générer de réponse. Pouvez-vous reformuler votre question ?" };
     } catch (error) {
       console.error('Erreur Gemini AI :', error);
-      if (error.message?.includes('SAFETY')) return 'Je ne peux pas répondre à cette question. Posez-moi plutôt une question sur la cuisine !';
-      if (error.message?.includes('quota') || error.message?.includes('limit')) return 'Le service IA a atteint ses limites. Réessayez dans quelques instants.';
-      if (error.message?.includes('API key')) return 'Clé API invalide. Vérifiez REACT_APP_GEMINI_API_KEY dans le fichier .env.';
-      return 'Erreur lors de la génération de la réponse. Vérifiez votre connexion internet ou réessayez plus tard.';
+      const fail = (t) => ({ text: t, error: true });
+      if (error.message?.includes('SAFETY')) return fail('Je ne peux pas répondre à cette question. Posez-moi plutôt une question sur la cuisine !');
+      if (error.message?.includes('quota') || error.message?.includes('limit')) return fail('Le service IA a atteint ses limites. Réessayez dans quelques instants.');
+      if (error.message?.includes('API key')) return fail('Clé API invalide. Vérifiez REACT_APP_GEMINI_API_KEY dans le fichier .env.');
+      return fail('Erreur lors de la génération de la réponse. Vérifiez votre connexion internet ou réessayez plus tard.');
     }
   };
 
   const send = async (raw = input) => {
     const text = raw.trim();
     if (!text || thinking || !model) return;
+    // 6 derniers messages (hors accueil) pour garder le fil de la conversation.
+    const history = messages.filter((m) => m.id !== WELCOME.id && !m.error).slice(-6);
     setMessages((m) => [...m, { id: Date.now(), type: 'user', message: text, timestamp: new Date() }]);
     setInput('');
     setThinking(true);
-    const reply = await answer(text);
-    setMessages((m) => [...m, { id: Date.now() + 1, type: 'bot', message: reply, timestamp: new Date() }]);
+    const reply = await answer(text, history);
+    setMessages((m) => [...m, {
+      id: Date.now() + 1, type: 'bot', message: reply.text, error: reply.error, timestamp: new Date(),
+      wantsPdf: PDF_REQUEST.test(text) && !reply.error,
+    }]);
     setThinking(false);
   };
 

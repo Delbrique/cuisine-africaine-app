@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Avatar, Box, Button, Checkbox, InputAdornment, List, ListItemAvatar, ListItemButton, ListItemText, TextField, Typography } from '@mui/material';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
-import { getDocs, collection } from 'firebase/firestore';
 import { enqueueSnackbar } from 'notistack';
-import { db, auth } from '../firebase/firebase';
+import { auth } from '../firebase/firebase';
 import { GroupService } from '../services/GroupService';
+import { getMembres } from '../services/membreService';
 import { PhotoPicker, ResponsiveDialog } from './ui';
 import { initials, normalize } from '../utils';
 
@@ -35,9 +35,10 @@ export default function CreateGroupModal({ open, onClose, onCreated, group }) {
     setSearch('');
     setBusy(false);
     if (!editing) {
-      getDocs(collection(db, 'membresFamille')).then((snap) =>
-        setMembers(snap.docs.map((d) => ({ uid: d.id, ...d.data() })).filter((m) => m.uid !== auth.currentUser?.uid))
-      );
+      // Uniquement les membres de SA famille qui ont un compte (seuls eux peuvent lire la discussion).
+      getMembres()
+        .then((list) => setMembers(list.filter((m) => m.compteUid && m.compteUid !== auth.currentUser?.uid).map((m) => ({ ...m, uid: m.compteUid }))))
+        .catch((err) => console.error('Membres indisponibles :', err));
     }
   }, [open, group, editing]);
 

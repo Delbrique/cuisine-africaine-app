@@ -5,10 +5,9 @@ import {
 } from '@mui/material';
 import PersonRemoveRoundedIcon from '@mui/icons-material/PersonRemoveRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
-import { collection, getDocs } from 'firebase/firestore';
 import { enqueueSnackbar } from 'notistack';
-import { db } from '../firebase/firebase';
 import { GroupService } from '../services/GroupService';
+import { getMembres } from '../services/membreService';
 import { ResponsiveDialog, useConfirm } from './ui';
 import { initials, normalize } from '../utils';
 
@@ -24,7 +23,10 @@ export default function ManageMembersModal({ open, onClose, groupId }) {
     setToAdd({});
     setSearch('');
     const unsub = GroupService.getMembers(groupId, (snap) => setCurrent(snap.docs.map((d) => ({ docId: d.id, ...d.data() }))));
-    getDocs(collection(db, 'membresFamille')).then((snap) => setCandidates(snap.docs.map((d) => ({ uid: d.id, ...d.data() }))));
+    // Candidats : membres de SA famille ayant un compte.
+    getMembres()
+      .then((list) => setCandidates(list.filter((m) => m.compteUid).map((m) => ({ ...m, uid: m.compteUid }))))
+      .catch((err) => console.error('Membres indisponibles :', err));
     return unsub;
   }, [open, groupId]);
 

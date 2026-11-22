@@ -11,7 +11,11 @@ import { AuthProvider, PublicOnly, RequireAuth } from './auth/AuthContext';
 import { ConfirmProvider } from './components/ui';
 import SplashScreen from './components/SplashScreen';
 import { applyUpdate } from './serviceWorkerRegistration';
+import Seo from './components/Seo';
 
+const DESC_ACCUEIL = 'Planifiez les repas africains de votre famille : menus de la semaine, liste de marché automatique, stock, recettes (ndolé, poulet DG, eru, mafé…) et assistant IA. Gratuit.';
+
+const AccueilPage = lazy(() => import('./pages/AccueilPage'));
 const LoginPage = lazy(() => import('./components/LoginPage'));
 const InscriptionPage = lazy(() => import('./components/InscriptionPage'));
 const ConfigurerFamillePage = lazy(() => import('./pages/ConfigurerFamillePage'));
@@ -66,11 +70,12 @@ function App() {
             <Router>
               <Suspense fallback={<SplashScreen />}>
                 <Routes>
-                  <Route path="/" element={<Navigate to="/famille-dashboard" replace />} />
-                  <Route path="/login" element={<PublicOnly><LoginPage /></PublicOnly>} />
-                  <Route path="/inscription" element={<PublicOnly><InscriptionPage /></PublicOnly>} />
-                  <Route path="/configurer-famille" element={<RequireAuth><ConfigurerFamillePage /></RequireAuth>} />
-                  <Route path="/famille-dashboard/*" element={<RequireAuth><FamilleDashboardLayout /></RequireAuth>} />
+                  {/* Vitrine publique (indexée par Google) ; un utilisateur connecté va directement au tableau de bord. */}
+                  <Route path="/" element={<PublicOnly><Seo title="Planning des repas africains en famille" description={DESC_ACCUEIL} path="/" /><AccueilPage /></PublicOnly>} />
+                  <Route path="/login" element={<PublicOnly><Seo title="Connexion" description="Connectez-vous à Cuisine Africaine pour retrouver le planning des repas, la liste de marché et le stock de votre famille." path="/login" /><LoginPage /></PublicOnly>} />
+                  <Route path="/inscription" element={<PublicOnly><Seo title="Créer un compte gratuit" description="Inscrivez-vous gratuitement à Cuisine Africaine et organisez les repas africains de toute votre famille : menus, liste de marché, stock." path="/inscription" /><InscriptionPage /></PublicOnly>} />
+                  <Route path="/configurer-famille" element={<RequireAuth><Seo title="Configurer ma famille" path="/configurer-famille" noindex /><ConfigurerFamillePage /></RequireAuth>} />
+                  <Route path="/famille-dashboard/*" element={<RequireAuth><Seo title="Mon espace famille" path="/famille-dashboard" noindex /><FamilleDashboardLayout /></RequireAuth>} />
                   <Route path="*" element={<Navigate to="/famille-dashboard" replace />} />
                 </Routes>
               </Suspense>

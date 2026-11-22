@@ -1,0 +1,127 @@
+rules_version = '2';
+
+// Règles de sécurité de Cuisine Africaine.
+// Principe : chaque compte appartient à UNE famille (champ `familleId` de sa fiche
+// membresFamille/{uid}). Une famille ne peut ni lire ni modifier les données d'une autre.
+// Seul le catalogue de plats (`public: true`) est visible par tous.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- Outils ----------
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function profilePath(uid) { return /databases/$(database)/documents/membresFamille/$(uid); }
+    function hasProfile() { return signedIn() && exists(profilePath(me())); }
+    function myProfile() { return get(profilePath(me())).data; }
+    function inFamille(fid) { return hasProfile() && fid != null && myProfile().get('familleId', null) == fid; }
+    function isFamilyAdmin() { return hasProfile() && myProfile().get('admin', false) == true; }
+    function myEmail() { return request.auth.token.email; }
+    function emailVerified() { return request.auth.token.email_verified == true; }
+    // Propriétaire de l'application : seul à pouvoir publier des plats dans le catalogue.
+    function isAppAdmin() { return signedIn() && me() == 'wa7UKz6RG4a49kC7EboOYbE835v1'; }
+    function unchanged(field) { return request.resource.data.get(field, null) == resource.data.get(field, null); }
+    function notAdminFlag() { return request.resource.data.get('admin', false) == false; }
+
+    // ---------- Familles ----------
+    match /familles/{fid} {
+      allow read: if inFamille(fid);
+      // Une famille est créée par son propriétaire, avec son propre uid comme identifiant.
+      allow create: if signedIn() && fid == me() && request.resource.data.ownerUid == me();
+      allow update: if inFamille(fid) && unchanged('ownerUid');
+      allow delete: if false;
+    }
+
+    // ---------- Membres ----------
+    match /membresFamille/{id} {
+      allow read: if signedIn() && (
+        id == me()
+        || inFamille(resource.data.familleId)
+        // Invitation : un compte à l'e-mail vérifié peut voir les fiches qui portent son e-mail.
+        || (emailVerified() && resource.data.email == myEmail())
+      );
+
+      allow create: if signedIn() && (
+        // 1. Sa propre fiche, propriétaire de sa nouvelle famille.
+        (id == me() && request.resource.data.familleId == me())
+        // 2. Sa propre fiche en rejoignant la famille qui l'a invité (e-mail vérifié).
+        || (id == me() && emailVerified() && notAdminFlag()
+            && request.resource.data.inviteId is string
+            && get(/databases/$(database)/documents/membresFamille/$(request.resource.data.inviteId)).data.familleId == request.resource.data.familleId
+            && get(/databases/$(database)/documents/membresFamille/$(request.resource.data.inviteId)).data.email == myEmail())
+        // 3. Un proche ajouté par un membre de la famille : identifiant « {familleId}__… », jamais l'uid d'un compte.
+        || (id != me() && notAdminFlag()
+            && inFamille(request.resource.data.familleId)
+            && id.matches(request.resource.data.familleId + '__.*'))
+      );
+
+      allow update: if signedIn() && (
+        (inFamille(resource.data.familleId) && unchanged('familleId') && unchanged('compteUid') && unchanged('admin'))
+        // Ancien compte sans famille : il devient propriétaire de sa propre famille.
+        || (id == me() && resource.data.get('familleId', null) == null && request.resource.data.familleId == me())
+      );
+
+      allow delete: if signedIn() && id != me() && inFamille(resource.data.familleId)
+        // Retirer le compte d'un proche de la famille : réservé à l'administrateur de la famille.
+        && (resource.data.get('compteUid', null) == null || isFamilyAdmin());
+    }
+
+    // ---------- Plats ----------
+    match /plats/{id} {
+      allow read: if resource.data.get('public', false) == true || inFamille(resource.data.familleId);
+      allow create: if inFamille(request.resource.data.familleId)
+        && (request.resource.data.get('public', false) == false || isAppAdmin());
+      allow update: if inFamille(resource.data.familleId) && unchanged('familleId')
+        && (request.resource.data.get('public', false) == false || isAppAdmin());
+      allow delete: if inFamille(resource.data.familleId);
+    }
+
+    // ---------- Planning et stock ----------
+    match /planningRepas/{id} {
+      allow read, delete: if inFamille(resource.data.familleId);
+      allow create: if inFamille(request.resource.data.familleId);
+      allow update: if inFamille(resource.data.familleId) && unchanged('familleId');
+    }
+
+    match /ingredients/{id} {
+      allow read, delete: if inFamille(resource.data.familleId);
+      allow create: if inFamille(request.resource.data.familleId);
+      allow update: if inFamille(resource.data.familleId) && unchanged('familleId');
+    }
+
+    // ---------- Messagerie ----------
+    function groupData(gid) { return get(/databases/$(database)/documents/groups/$(gid)).data; }
+    function isGroupMember(gid) {
+      let g = groupData(gid);
+      return signedIn() && (me() in g.get('memberUids', []) || g.get('creator', '') == me());
+    }
+
+    match /groups/{gid} {
+      allow read: if signedIn() && (me() in resource.data.get('memberUids', []) || resource.data.get('creator', '') == me());
+      allow create: if inFamille(request.resource.data.familleId)
+        && request.resource.data.creator == me()
+        && me() in request.resource.data.memberUids;
+      allow update: if signedIn()
+        && (resource.data.get('creator', '') == me() || me() in resource.data.get('memberUids', []))
+        && unchanged('familleId') && unchanged('creator');
+      allow delete: if signedIn() && resource.data.get('creator', '') == me();
+
+      match /members/{mid} {
+        allow read, create, update, delete: if isGroupMember(gid);
+      }
+
+      match /messages/{msgId} {
+        allow read: if isGroupMember(gid);
+        allow create: if isGroupMember(gid) && request.resource.data.senderId == me();
+        allow update, delete: if signedIn()
+          && (resource.data.get('senderId', '') == me() || groupData(gid).get('creator', '') == me());
+      }
+    }
+
+    // Liste « mes groupes » : chacun ne voit que ses propres inscriptions aux groupes.
+    match /{path=**}/members/{mid} {
+      allow read: if signedIn() && resource.data.uid == me();
+    }
+
+    // Tout le reste (dont l'ancienne collection `messages`) est fermé.
+  }
+}

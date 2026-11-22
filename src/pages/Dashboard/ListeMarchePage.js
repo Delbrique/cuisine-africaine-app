@@ -17,7 +17,8 @@ import RadioButtonUncheckedRoundedIcon from '@mui/icons-material/RadioButtonUnch
 import jsPDF from 'jspdf';
 import { enqueueSnackbar } from 'notistack';
 
-import { updateIngredientStock, getIngredientById, INGREDIENT_STATUS, getIngredients } from '../../services/ingredientService';
+import { updateIngredientStock, getIngredientById, getIngredients } from '../../services/ingredientService';
+import { SHOPPING_EVENT, dismissAuto, readShoppingList, writeShoppingList } from '../../services/shoppingList';
 import { getPlats } from '../../services/platService';
 import { getMostRecentPlanning } from '../../services/planningService';
 import { getMembres } from '../../services/membreService';
@@ -33,7 +34,6 @@ const blobToBase64 = (blob) =>
     reader.readAsDataURL(blob);
   });
 
-const store = (list) => localStorage.setItem('shoppingList', JSON.stringify(list));
 const today = () => new Date().toLocaleDateString('fr-FR').replace(/\//g, '-');
 
 const aggregateIngredients = (meals, plats, stock) => {
@@ -67,7 +67,11 @@ function Item({ item, cost, onToggle, onRemove }) {
           <Typography sx={{ fontWeight: 650, textDecoration: item.checked ? 'line-through' : 'none', color: item.checked ? 'text.secondary' : 'text.primary' }} noWrap>
             {item.nom}
           </Typography>
-          <Typography variant="body2" color="text.secondary">{formatNumber(item.quantite)} {item.uniteMesure}</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {formatNumber(item.quantite)} {item.uniteMesure}
+            {item.auto && <Box component="span" sx={{ ml: 1, color: 'warning.main', fontWeight: 700 }}>· Stock bas</Box>}
+            {item.stocked && <Box component="span" sx={{ ml: 1, color: 'success.main', fontWeight: 700 }}>· Ajouté au stock</Box>}
+          </Typography>
         </Box>
       </ButtonBase>
       <Box sx={{ textAlign: 'right' }}>
@@ -108,13 +112,20 @@ function ListeMarchePage() {
   };
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem('shoppingList')) || [];
-    setShoppingList(stored.map((i) => ({ ...i, quantite: parseFloat(i.quantite) || 0, prixUnitaire: parseFloat(i.prixUnitaire) || 0 })));
+    setShoppingList(readShoppingList());
     fetchData();
+    // La liste peut changer ailleurs (ajout automatique d'un produit presque épuisé, autre onglet…).
+    const reload = () => setShoppingList(readShoppingList());
+    window.addEventListener(SHOPPING_EVENT, reload);
+    window.addEventListener('storage', reload);
+    return () => {
+      window.removeEventListener(SHOPPING_EVENT, reload);
+      window.removeEventListener('storage', reload);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const update = (list) => { setShoppingList(list); store(list); };
+  const update = (list) => { setShoppingList(list); writeShoppingList(list); };
 
   const handleGenerate = async () => {
     setBusy('gen');
@@ -130,13 +141,13 @@ function ListeMarchePage() {
         return;
       }
       const list = aggregateIngredients(meals, plats, stk);
-      // Comportement d'origine : réapprovisionne les ingrédients épuisés ou jamais utilisés.
-      for (const item of list) {
-        const cur = await getIngredientById(item.ingredientId);
-        if (cur && (cur.status === INGREDIENT_STATUS.EXHAUSTED || cur.status === INGREDIENT_STATUS.NOT_USED)) {
-          await updateIngredientStock(item.ingredientId, item.quantite, cur.status);
-        }
-      }
+      // Le stock n'est plus rechargé ici : il l'est quand on coche l'article au marché.
+      // Les produits ajoutés automatiquement (stock bas) sont conservés et cumulés.
+      readShoppingList().filter((i) => i.auto).forEach((a) => {
+        const same = list.find((x) => x.ingredientId === a.ingredientId);
+        if (same) same.quantite += a.quantite;
+        else list.push({ ...a, checked: false, stocked: false });
+      });
       update(list);
       enqueueSnackbar(`Liste générée : ${list.length} ingrédient(s) pour la semaine.`, { variant: 'success' });
     } catch (err) {
@@ -149,8 +160,9 @@ function ListeMarchePage() {
   const handleClearAll = async () => {
     setMenu(null);
     if (!(await confirm({ title: 'Vider la liste de marché ?', message: 'Tous les articles seront retirés.', confirmLabel: 'Vider' }))) return;
+    // Les produits ajoutés automatiquement ne reviennent pas tant que leur stock n'est pas rétabli.
+    shoppingList.filter((i) => i.auto).forEach((i) => dismissAuto(i.ingredientId));
     update([]);
-    localStorage.removeItem('shoppingList');
   };
 
   const buildPdf = () => {
@@ -296,8 +308,39 @@ function ListeMarchePage() {
   const remaining = shoppingList.filter((i) => !i.checked);
   const done = shoppingList.filter((i) => i.checked);
   const progress = shoppingList.length ? (done.length / shoppingList.length) * 100 : 0;
-  const toggle = (id) => update(shoppingList.map((i) => (i.ingredientId === id ? { ...i, checked: !i.checked } : i)));
-  const remove = (id) => update(shoppingList.filter((i) => i.ingredientId !== id));
+  /**
+   * Cocher un article = il est acheté : sa quantité est ajoutée au stock.
+   * Le décocher annule cette recharge (sans compter de consommation).
+   */
+  const toggle = async (id) => {
+    const item = shoppingList.find((i) => i.ingredientId === id);
+    if (!item) return;
+    const checked = !item.checked;
+    let stocked = Boolean(item.stocked);
+    const q = parseFloat(item.quantite) || 0;
+    // Mise à jour immédiate de l'affichage, le stock suit.
+    update(shoppingList.map((i) => (i.ingredientId === id ? { ...i, checked } : i)));
+    try {
+      const ing = await getIngredientById(id); // null si l'ingrédient a été supprimé
+
+      if (ing && q > 0 && checked && !stocked) {
+        await updateIngredientStock(id, q, ing.status);
+        stocked = true;
+        enqueueSnackbar(`Stock de « ${item.nom} » rechargé : +${formatNumber(q)} ${item.uniteMesure || ''}`, { variant: 'success' });
+      } else if (ing && q > 0 && !checked && stocked) {
+        await updateIngredientStock(id, -q, ing.status, { countConsumption: false });
+        stocked = false;
+        enqueueSnackbar(`Recharge de « ${item.nom} » annulée.`, { variant: 'info' });
+      }
+    } catch (err) {
+      enqueueSnackbar(`Stock non mis à jour : ${friendlyError(err)}`, { variant: 'error' });
+    }
+    update(readShoppingList().map((i) => (i.ingredientId === id ? { ...i, checked, stocked } : i)));
+  };
+  const remove = (id) => {
+    if (shoppingList.find((i) => i.ingredientId === id)?.auto) dismissAuto(id);
+    update(shoppingList.filter((i) => i.ingredientId !== id));
+  };
 
   return (
     <Box>

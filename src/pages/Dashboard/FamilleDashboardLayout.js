@@ -11,6 +11,7 @@ import { Logo, ThemeToggle, patternBg } from '../../components/ui';
 import SplashScreen from '../../components/SplashScreen';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import usePwaInstall from '../../pwa/usePwaInstall';
+import useAutoRestock from '../../services/useAutoRestock';
 import UserMenu from './UserMenu';
 import { ALL_ITEMS, BOTTOM_TABS, NAV_SECTIONS, isActive } from './navigation';
 import { tint } from '../../theme/theme';
@@ -193,6 +194,7 @@ function FamilleDashboardLayout() {
   const { pathname } = useLocation();
   const [more, setMore] = useState(false);
   const isChat = pathname.startsWith('/famille-dashboard/messages');
+  useAutoRestock();
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100dvh', bgcolor: 'background.default' }}>

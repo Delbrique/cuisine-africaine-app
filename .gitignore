@@ -27,3 +27,8 @@ yarn-error.log*
 
 # cache de déploiement Firebase
 .firebase/
+
+# journaux des émulateurs Firebase
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
