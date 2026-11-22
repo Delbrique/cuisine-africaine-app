@@ -39,7 +39,7 @@ const STEPS = [
 ];
 
 const FAQ = [
-  ['Cuisine Africaine est-elle gratuite ?', 'Oui, la création de compte et l’utilisation de l’application sont gratuites.'],
+  ['Libiyo est-elle gratuite ?', 'Oui, la création de compte et l’utilisation de l’application sont gratuites.'],
   ['Faut-il installer quelque chose ?', 'Non. L’application fonctionne dans le navigateur, sur téléphone, tablette et ordinateur. Vous pouvez aussi l’installer sur l’écran d’accueil de votre téléphone, comme une vraie application.'],
   ['Quels plats puis-je planifier ?', 'Tous ceux que vous voulez : vos recettes de famille, les classiques de la cuisine camerounaise, sénégalaise, ivoirienne ou nigériane, et des plats du monde entier.'],
   ['Comment fonctionne la liste de marché ?', 'Quand vous planifiez vos repas, l’application additionne les ingrédients de chaque plat, retire ce que vous avez déjà en stock et prépare la liste des courses.'],
@@ -59,7 +59,7 @@ export default function AccueilPage() {
       >
         <Container maxWidth="lg">
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: { xs: 5, md: 9 } }}>
-            <Logo size={44} color="#FFF3E0" subtitle="Le carnet de la famille" />
+            <Logo size={44} color="#FFF3E0" subtitle="Le carnet de cuisine de la famille" />
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <ThemeToggle sx={{ color: '#FFF3E0', bgcolor: 'rgba(255,243,224,.12)' }} />
               <Button component={RouterLink} to="/login" sx={{ color: '#FFF3E0', display: { xs: 'none', sm: 'inline-flex' } }}>
@@ -77,7 +77,7 @@ export default function AccueilPage() {
               <Box component="span" sx={{ fontStyle: 'italic', color: '#F2A93B' }}>de toute la famille.</Box>
             </Typography>
             <Typography sx={{ fontSize: { xs: 17, md: 20 }, lineHeight: 1.55, opacity: 0.92, mb: 4, maxWidth: 620 }}>
-              Menus de la semaine, liste de marché automatique, stock et recettes : Cuisine Africaine
+              Menus de la semaine, liste de marché automatique, stock et recettes : Libiyo
               organise la cuisine de la maison pour que vous mangiez mieux, gaspilliez moins et gagniez du temps.
             </Typography>
             <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5 }}>
@@ -178,7 +178,7 @@ export default function AccueilPage() {
 
       <Box component="footer" sx={{ borderTop: '1px solid', borderColor: 'divider', py: 3, px: 2, textAlign: 'center', pb: 'calc(env(safe-area-inset-bottom) + 24px)' }}>
         <Typography variant="body2" color="text.secondary">
-          © {new Date().getFullYear()} Cuisine Africaine – Planning des repas africains en famille
+          © {new Date().getFullYear()} Libiyo – Le carnet de cuisine de la famille
         </Typography>
       </Box>
     </Box>

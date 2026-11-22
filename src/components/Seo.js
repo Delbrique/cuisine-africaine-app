@@ -4,7 +4,7 @@
 import { useEffect } from 'react';
 
 const SITE_URL = 'https://cuisineafricaineapp.web.app';
-const SITE_NAME = 'Cuisine Africaine';
+const SITE_NAME = 'Libiyo';
 
 const setMeta = (attr, key, content) => {
   let el = document.head.querySelector(`meta[${attr}="${key}"]`);

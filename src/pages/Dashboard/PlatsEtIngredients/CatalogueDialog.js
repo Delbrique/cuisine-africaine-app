@@ -58,7 +58,7 @@ export default function CatalogueDialog({ open, onClose, familyPlats = [], onAdd
   return (
     <ResponsiveDialog open={open} onClose={onClose} title="Catalogue de plats" maxWidth="md">
       <Typography color="text.secondary" sx={{ mb: 2 }}>
-        Les plats proposés par Cuisine Africaine. Ajoutez ceux que vous cuisinez : ils rejoignent les recettes de votre famille,
+        Les plats proposés par Libiyo. Ajoutez ceux que vous cuisinez : ils rejoignent les recettes de votre famille,
         et leurs ingrédients votre stock.
       </Typography>
       <TextField

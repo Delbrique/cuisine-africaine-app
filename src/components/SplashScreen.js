@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Typography } from '@mui/material';
 
 /** Écran de chargement de marque (reprend l'écran de démarrage d'index.html). */
-export default function SplashScreen({ label = 'Cuisine Africaine', inline = false }) {
+export default function SplashScreen({ label = 'Libiyo', inline = false }) {
   return (
     <Box
       sx={{
