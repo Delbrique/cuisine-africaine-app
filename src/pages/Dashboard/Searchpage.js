@@ -13,7 +13,7 @@ import TimerRoundedIcon from '@mui/icons-material/TimerRounded';
 import PictureAsPdfRoundedIcon from '@mui/icons-material/PictureAsPdfRounded';
 
 import { getPlats } from '../../services/platService';
-import { GEMINI_API_KEY, generateText } from '../../services/gemini';
+import { AI_READY, generateText } from '../../services/gemini';
 import { DishImage, PageHeader, patternBg } from '../../components/ui';
 import { useAuth } from '../../auth/AuthContext';
 import { initials, normalize } from '../../utils';
@@ -185,7 +185,7 @@ function Assistant({ plats, height }) {
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
   const endRef = useRef(null);
-  const model = Boolean(GEMINI_API_KEY);
+  const model = Boolean(AI_READY);
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages, thinking]);
 
@@ -198,7 +198,7 @@ function Assistant({ plats, height }) {
       const fail = (t) => ({ text: t, error: true });
       if (error.message?.includes('SAFETY')) return fail('Je ne peux pas répondre à cette question. Posez-moi plutôt une question sur la cuisine !');
       if (error.message?.includes('quota') || error.message?.includes('limit')) return fail('Le service IA a atteint ses limites. Réessayez dans quelques instants.');
-      if (error.message?.includes('API key')) return fail('Clé API invalide. Vérifiez REACT_APP_GEMINI_API_KEY dans le fichier .env.');
+      if (/app-check|App Check|PERMISSION|403|401/i.test(`${error.code} ${error.message}`)) return fail("Accès à l'IA refusé. Rechargez l'application et réessayez.");
       return fail('Erreur lors de la génération de la réponse. Vérifiez votre connexion internet ou réessayez plus tard.');
     }
   };
@@ -238,7 +238,7 @@ function Assistant({ plats, height }) {
 
       <Box sx={{ flex: 1, overflowY: 'auto', p: { xs: 1.5, sm: 2.5 }, display: 'flex', flexDirection: 'column', gap: 2, bgcolor: 'sand.main', backgroundImage: patternBg('#C2461A', 0.05) }}>
         {!model && (
-          <Alert severity="warning">L'assistant n'est pas configuré : ajoutez REACT_APP_GEMINI_API_KEY dans le fichier .env puis relancez l'application.</Alert>
+          <Alert severity="warning">L'assistant IA n'est pas disponible pour le moment.</Alert>
         )}
         {messages.map((m) => <Bubble key={m.id} msg={m} userName={userName} userPhoto={profile?.photoProfil || undefined} />)}
         {thinking && (
