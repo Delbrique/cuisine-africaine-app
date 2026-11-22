@@ -8,6 +8,7 @@ import ShoppingBasketRoundedIcon from '@mui/icons-material/ShoppingBasketRounded
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
+import PlaceRoundedIcon from '@mui/icons-material/PlaceRounded';
 
 const base = '/famille-dashboard';
 
@@ -36,6 +37,7 @@ export const NAV_SECTIONS = [
     items: [
       { label: 'Planning', icon: CalendarMonthRoundedIcon, path: `${base}/planning-repas` },
       { label: 'Marché', icon: ShoppingBasketRoundedIcon, path: `${base}/liste-marche` },
+      { label: 'Marchés proches', icon: PlaceRoundedIcon, path: `${base}/marches` },
       { label: 'Stock', icon: Inventory2RoundedIcon, path: `${base}/stock` },
     ],
   },
