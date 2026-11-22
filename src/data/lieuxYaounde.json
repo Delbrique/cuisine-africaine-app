@@ -1,0 +1,934 @@
+{
+ "ville": "Yaoundé",
+ "source": "© contributeurs OpenStreetMap (ODbL)",
+ "extrait": "2026-11-22",
+ "lieux": [
+  {
+   "id": "way/218539491",
+   "nom": "Foire de Tsinga",
+   "type": "marche",
+   "lat": 3.895746,
+   "lon": 11.498605,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "way/218539492",
+   "nom": "Grand Marché de Biyem-Assi",
+   "type": "marche",
+   "lat": 3.835663,
+   "lon": 11.486468,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/192830581",
+   "nom": "Marché",
+   "type": "marche",
+   "lat": 3.871879,
+   "lon": 11.540465,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "way/192839039",
+   "nom": "Marché",
+   "type": "marche",
+   "lat": 3.862716,
+   "lon": 11.478252,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/14026669554",
+   "nom": "Marché Acacia",
+   "type": "marche",
+   "lat": 3.842001,
+   "lon": 11.489536,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/218539503",
+   "nom": "Marché aux Bestiaux",
+   "type": "marche",
+   "lat": 3.887413,
+   "lon": 11.494258,
+   "horaires": "Mo-Sa 07:00-18:00",
+   "connu": false
+  },
+  {
+   "id": "way/236959045",
+   "nom": "Marché aux Fruits et Légumes",
+   "type": "marche",
+   "lat": 3.869686,
+   "lon": 11.519053,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/14004711916",
+   "nom": "Marché Central",
+   "type": "marche",
+   "lat": 3.866703,
+   "lon": 11.517017,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/1067272379",
+   "nom": "Marché Central de Leboudi",
+   "type": "marche",
+   "lat": 3.936199,
+   "lon": 11.443806,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/1067272685",
+   "nom": "Marché d'Ebot",
+   "type": "marche",
+   "lat": 3.976076,
+   "lon": 11.455905,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "way/192866062",
+   "nom": "Marché d'Ekounou",
+   "type": "marche",
+   "lat": 3.845047,
+   "lon": 11.541557,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/198684142",
+   "nom": "Marché d'Essos",
+   "type": "marche",
+   "lat": 3.86988,
+   "lon": 11.542404,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/516192454",
+   "nom": "Marché de mbankomo",
+   "type": "marche",
+   "lat": 3.790334,
+   "lon": 11.399517,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/13992367639",
+   "nom": "Marché De Melen",
+   "type": "marche",
+   "lat": 3.868469,
+   "lon": 11.496357,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/1987811293",
+   "nom": "Marché de Mvog Mbi",
+   "type": "marche",
+   "lat": 3.850572,
+   "lon": 11.520838,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/2381896693",
+   "nom": "Marché de Nkol Eton",
+   "type": "marche",
+   "lat": 3.88839,
+   "lon": 11.520074,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/7162366129",
+   "nom": "Marché De Nkolbisson",
+   "type": "marche",
+   "lat": 3.871601,
+   "lon": 11.454531,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/7162367413",
+   "nom": "Marché De Nkolbisson",
+   "type": "marche",
+   "lat": 3.882919,
+   "lon": 11.468,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/519122362",
+   "nom": "Marché de Nomayos",
+   "type": "marche",
+   "lat": 3.788666,
+   "lon": 11.431682,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "way/977035760",
+   "nom": "Marché des Vivres & Fruits du Parcours Vita",
+   "type": "marche",
+   "lat": 3.915179,
+   "lon": 11.501004,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "way/218539507",
+   "nom": "Marché du 8ème",
+   "type": "marche",
+   "lat": 3.889033,
+   "lon": 11.497038,
+   "horaires": "Mo-Sa 07:00-18:00",
+   "connu": true
+  },
+  {
+   "id": "way/218539508",
+   "nom": "Marché Étoudi",
+   "type": "marche",
+   "lat": 3.914893,
+   "lon": 11.525264,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/35968865",
+   "nom": "Marché Madagascar",
+   "type": "marche",
+   "lat": 3.88038,
+   "lon": 11.492772,
+   "horaires": "Mo-Su 07:00-17:30; We off",
+   "connu": true
+  },
+  {
+   "id": "way/223994350",
+   "nom": "Marché Mfoundi A",
+   "type": "marche",
+   "lat": 3.864308,
+   "lon": 11.523112,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/218539502",
+   "nom": "Marché Mokolo",
+   "type": "marche",
+   "lat": 3.874746,
+   "lon": 11.500962,
+   "horaires": "Mo-Su 08:00-18:00; We off",
+   "connu": true
+  },
+  {
+   "id": "node/11422740207",
+   "nom": "Marché Mvog betsi",
+   "type": "marche",
+   "lat": 3.866416,
+   "lon": 11.48667,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/192828059",
+   "nom": "Marché National",
+   "type": "marche",
+   "lat": 3.87046,
+   "lon": 11.501247,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "way/218539498",
+   "nom": "Marché Nsam",
+   "type": "marche",
+   "lat": 3.829304,
+   "lon": 11.510082,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/11959695417",
+   "nom": "Marché Obili",
+   "type": "marche",
+   "lat": 3.85015,
+   "lon": 11.493371,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/12870193330",
+   "nom": "Marché Ongola",
+   "type": "marche",
+   "lat": 3.868165,
+   "lon": 11.518063,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/516196132",
+   "nom": "Marché périodique de mbankomo",
+   "type": "marche",
+   "lat": 3.79031,
+   "lon": 11.403175,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/7184491425",
+   "nom": "Marché Total Ngousso",
+   "type": "marche",
+   "lat": 3.897381,
+   "lon": 11.550101,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "way/1473818300",
+   "nom": "Mokolo En Bas",
+   "type": "marche",
+   "lat": 3.872838,
+   "lon": 11.500048,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/7184491424",
+   "nom": "Petit Marché",
+   "type": "marche",
+   "lat": 3.892917,
+   "lon": 11.548809,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/7184508685",
+   "nom": "Petit Marché",
+   "type": "marche",
+   "lat": 3.891233,
+   "lon": 11.567098,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/7184499271",
+   "nom": "Petit Marché De Fruit",
+   "type": "marche",
+   "lat": 3.922,
+   "lon": 11.538728,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/7184455473",
+   "nom": "Petit Marché Mvog Ada",
+   "type": "marche",
+   "lat": 3.867149,
+   "lon": 11.526064,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/7184497295",
+   "nom": "Vente Des Fruits",
+   "type": "marche",
+   "lat": 3.879764,
+   "lon": 11.550343,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/4262441331",
+   "nom": "Alimentation Oncle René",
+   "type": "supermarche",
+   "lat": 3.837259,
+   "lon": 11.484975,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/420427576",
+   "nom": "Bon Prix",
+   "type": "supermarche",
+   "lat": 3.892496,
+   "lon": 11.5131,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/10275402003",
+   "nom": "carrefour Kongossa",
+   "type": "supermarche",
+   "lat": 3.857917,
+   "lon": 11.602327,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/13278572176",
+   "nom": "Carrefour Market",
+   "type": "supermarche",
+   "lat": 3.834342,
+   "lon": 11.540836,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/10091211200",
+   "nom": "Carrefour Momebeingal",
+   "type": "supermarche",
+   "lat": 3.891257,
+   "lon": 11.566904,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/10679480665",
+   "nom": "Carrefour Warda",
+   "type": "supermarche",
+   "lat": 3.876637,
+   "lon": 11.51303,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "way/219052049",
+   "nom": "Casino",
+   "type": "supermarche",
+   "lat": 3.862531,
+   "lon": 11.520446,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/767476718",
+   "nom": "Casino",
+   "type": "supermarche",
+   "lat": 3.888031,
+   "lon": 11.515978,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/14004711250",
+   "nom": "Casino Poste",
+   "type": "supermarche",
+   "lat": 3.863297,
+   "lon": 11.520274,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/193966613",
+   "nom": "CentraGel",
+   "type": "supermarche",
+   "lat": 3.893369,
+   "lon": 11.512861,
+   "horaires": "Mo-Su 08:30-19:30",
+   "connu": false
+  },
+  {
+   "id": "node/5896761688",
+   "nom": "Des Lys",
+   "type": "supermarche",
+   "lat": 3.783451,
+   "lon": 11.524653,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/4010722854",
+   "nom": "Dovv",
+   "type": "supermarche",
+   "lat": 3.873352,
+   "lon": 11.501731,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/192820328",
+   "nom": "Dovv",
+   "type": "supermarche",
+   "lat": 3.869877,
+   "lon": 11.479998,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/193505237",
+   "nom": "Dovv",
+   "type": "supermarche",
+   "lat": 3.840255,
+   "lon": 11.494953,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/410311070",
+   "nom": "Dovv",
+   "type": "supermarche",
+   "lat": 3.87375,
+   "lon": 11.540278,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/13995852734",
+   "nom": "Dovv Awae",
+   "type": "supermarche",
+   "lat": 3.829199,
+   "lon": 11.553337,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/193960633",
+   "nom": "Dovv Bastos",
+   "type": "supermarche",
+   "lat": 3.892541,
+   "lon": 11.510103,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/13994572154",
+   "nom": "Dovv Ékié",
+   "type": "supermarche",
+   "lat": 3.831112,
+   "lon": 11.539768,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/10171194218",
+   "nom": "Dovv Mendong",
+   "type": "supermarche",
+   "lat": 3.831056,
+   "lon": 11.473572,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/7165885470",
+   "nom": "Dovv Ngousso",
+   "type": "supermarche",
+   "lat": 3.908155,
+   "lon": 11.541344,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/11459698870",
+   "nom": "DOVV Shakespeare",
+   "type": "supermarche",
+   "lat": 3.861218,
+   "lon": 11.572638,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/9070377541",
+   "nom": "Dôvv Simbock",
+   "type": "supermarche",
+   "lat": 3.82279,
+   "lon": 11.472096,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/7938774585",
+   "nom": "DOVV Supermarket",
+   "type": "supermarche",
+   "lat": 3.799294,
+   "lon": 11.522636,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/525564645",
+   "nom": "Dovv, Tongolo",
+   "type": "supermarche",
+   "lat": 3.90814,
+   "lon": 11.528772,
+   "horaires": "Mo-Sa 08:00-20:00",
+   "connu": true
+  },
+  {
+   "id": "node/6311082103",
+   "nom": "Ecomarché",
+   "type": "supermarche",
+   "lat": 3.88398,
+   "lon": 11.516807,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/193965265",
+   "nom": "Épicerie chinoise Bastos",
+   "type": "supermarche",
+   "lat": 3.886666,
+   "lon": 11.511965,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/2033639599",
+   "nom": "Fekoue Supermarche",
+   "type": "supermarche",
+   "lat": 3.869855,
+   "lon": 11.50307,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/7232381127",
+   "nom": "Fokou",
+   "type": "supermarche",
+   "lat": 3.870513,
+   "lon": 11.534014,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/7232369043",
+   "nom": "Kenza Market",
+   "type": "supermarche",
+   "lat": 3.87587,
+   "lon": 11.54385,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/5582117322",
+   "nom": "Kenza Market 100% Bio",
+   "type": "supermarche",
+   "lat": 3.844797,
+   "lon": 11.486683,
+   "horaires": "Mo-Sa 08:00-13:00, 15:00-21:00",
+   "connu": true
+  },
+  {
+   "id": "node/14004692066",
+   "nom": "Kumayas",
+   "type": "supermarche",
+   "lat": 3.86838,
+   "lon": 11.516715,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/2997572590",
+   "nom": "La Grâce",
+   "type": "supermarche",
+   "lat": 3.965544,
+   "lon": 11.593681,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/7232371636",
+   "nom": "Le Best",
+   "type": "supermarche",
+   "lat": 3.867502,
+   "lon": 11.530892,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/5521168470",
+   "nom": "Mahima",
+   "type": "supermarche",
+   "lat": 3.846274,
+   "lon": 11.519139,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/12455861302",
+   "nom": "Mahima",
+   "type": "supermarche",
+   "lat": 3.865845,
+   "lon": 11.519593,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/410311071",
+   "nom": "Mahima",
+   "type": "supermarche",
+   "lat": 3.873995,
+   "lon": 11.541012,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/6315935388",
+   "nom": "Mahima Supermarché",
+   "type": "supermarche",
+   "lat": 3.877748,
+   "lon": 11.524946,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/6316081618",
+   "nom": "Max",
+   "type": "supermarche",
+   "lat": 3.881753,
+   "lon": 11.505663,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/14004580056",
+   "nom": "Mfoundi Mall",
+   "type": "supermarche",
+   "lat": 3.866018,
+   "lon": 11.523319,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/11403253455",
+   "nom": "Mini mokolo",
+   "type": "supermarche",
+   "lat": 3.874587,
+   "lon": 11.428729,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/4591850216",
+   "nom": "Montana",
+   "type": "supermarche",
+   "lat": 3.868886,
+   "lon": 11.519033,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/6308327460",
+   "nom": "Niki",
+   "type": "supermarche",
+   "lat": 3.865073,
+   "lon": 11.519256,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/14004589069",
+   "nom": "Niki Central",
+   "type": "supermarche",
+   "lat": 3.865074,
+   "lon": 11.519251,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/5777057821",
+   "nom": "Niki Mokolo",
+   "type": "supermarche",
+   "lat": 3.874383,
+   "lon": 11.49942,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/6315935440",
+   "nom": "NIKI Nlongkak",
+   "type": "supermarche",
+   "lat": 3.885786,
+   "lon": 11.520646,
+   "horaires": "Mo-Sa 08:00-19:00",
+   "connu": true
+  },
+  {
+   "id": "node/2276192086",
+   "nom": "Nziko",
+   "type": "supermarche",
+   "lat": 3.865692,
+   "lon": 11.519758,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "way/193964640",
+   "nom": "Orca",
+   "type": "supermarche",
+   "lat": 3.887366,
+   "lon": 11.538597,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/5275099691",
+   "nom": "Oumbe",
+   "type": "supermarche",
+   "lat": 3.895637,
+   "lon": 11.523336,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "way/410523808",
+   "nom": "Rayco Nkol-Eton",
+   "type": "supermarche",
+   "lat": 3.888728,
+   "lon": 11.518861,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/8989860018",
+   "nom": "Santa Lucia",
+   "type": "supermarche",
+   "lat": 3.825206,
+   "lon": 11.517061,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/11384443268",
+   "nom": "Santa Lucia",
+   "type": "supermarche",
+   "lat": 3.792741,
+   "lon": 11.522858,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/1365305237",
+   "nom": "Santa Lucia Ahala",
+   "type": "supermarche",
+   "lat": 3.795369,
+   "lon": 11.492088,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/5899225085",
+   "nom": "Santa Lucia Lycée Bilingue",
+   "type": "supermarche",
+   "lat": 3.879744,
+   "lon": 11.550549,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/5777138840",
+   "nom": "SANTA LUCIA Melen",
+   "type": "supermarche",
+   "lat": 3.864086,
+   "lon": 11.495358,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/527204580",
+   "nom": "Santa Lucia Ngousso",
+   "type": "supermarche",
+   "lat": 3.892711,
+   "lon": 11.548429,
+   "horaires": "Mo-Su 07:00-22:00",
+   "connu": true
+  },
+  {
+   "id": "node/8130121839",
+   "nom": "Santa Maria",
+   "type": "supermarche",
+   "lat": 3.827988,
+   "lon": 11.549833,
+   "horaires": "24/7",
+   "connu": false
+  },
+  {
+   "id": "way/425549014",
+   "nom": "Santa marya",
+   "type": "supermarche",
+   "lat": 3.847843,
+   "lon": 11.486146,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "way/410271022",
+   "nom": "Sentimental",
+   "type": "supermarche",
+   "lat": 3.874252,
+   "lon": 11.500831,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/3893849751",
+   "nom": "Socropole Tsinga",
+   "type": "supermarche",
+   "lat": 3.887907,
+   "lon": 11.50056,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/2805025334",
+   "nom": "Soneco",
+   "type": "supermarche",
+   "lat": 3.886747,
+   "lon": 11.537193,
+   "horaires": "Mo-Su 06:00-22:00",
+   "connu": true
+  },
+  {
+   "id": "node/13301244631",
+   "nom": "Spar",
+   "type": "supermarche",
+   "lat": 3.882069,
+   "lon": 11.513408,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/1177251338",
+   "nom": "Super U Ntougou",
+   "type": "supermarche",
+   "lat": 3.895015,
+   "lon": 11.500217,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "node/7993239686",
+   "nom": "Supermarché ecomax",
+   "type": "supermarche",
+   "lat": 3.808,
+   "lon": 11.517232,
+   "horaires": "",
+   "connu": false
+  },
+  {
+   "id": "node/4262441368",
+   "nom": "Supermarché Niki",
+   "type": "supermarche",
+   "lat": 3.837674,
+   "lon": 11.485996,
+   "horaires": "",
+   "connu": true
+  },
+  {
+   "id": "way/756881783",
+   "nom": "Supermarché Socropole",
+   "type": "supermarche",
+   "lat": 3.872973,
+   "lon": 11.45482,
+   "horaires": "",
+   "connu": true
+  }
+ ]
+}

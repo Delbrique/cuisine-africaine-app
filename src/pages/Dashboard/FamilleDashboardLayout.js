@@ -24,6 +24,7 @@ const IngredientsPage = lazy(() => import('./PlatsEtIngredients/IngredientsPage'
 const StockPage = lazy(() => import('./StockPage'));
 const PlanningPage = lazy(() => import('./PlanningPage'));
 const ListeMarchePage = lazy(() => import('./ListeMarchePage'));
+const MarchesPage = lazy(() => import('./MarchesPage'));
 const SearchPage = lazy(() => import('./Searchpage'));
 const DecouvertePage = lazy(() => import('./DecouvertePage'));
 const ChatPage = lazy(() => import('../../components/Communication/ChatPage'));
@@ -229,6 +230,7 @@ function FamilleDashboardLayout() {
               <Route path="stock" element={<StockPage />} />
               <Route path="planning-repas" element={<PlanningPage />} />
               <Route path="liste-marche" element={<ListeMarchePage />} />
+              <Route path="marches" element={<MarchesPage />} />
               <Route path="search" element={<SearchPage />} />
               <Route path="decouverte" element={<DecouvertePage />} />
               <Route path="DecouvertePage" element={<Navigate to="/famille-dashboard/decouverte" replace />} />

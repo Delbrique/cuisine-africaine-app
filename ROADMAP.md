@@ -33,12 +33,13 @@ Cochez les cases au fur et à mesure (`[x]`).
 - [ ] Budget de la semaine : plafond, dépensé, reste, alerte de dépassement. **(M)**
 
 ### Marché et supermarché le plus proche
-- [ ] Demander la position de l'utilisateur (avec son accord). **(S)**
-- [ ] Répertoire des marchés et supermarchés : liste vérifiée pour Yaoundé (marché Nsam, Santa Lucia Ahala, Mokolo, Mfoundi, Mvog-Mbi, Essos…) avec coordonnées GPS, horaires, jours d'affluence et spécialités ; complétée par OpenStreetMap puis par les familles (avec validation). **(M)**
-- [ ] Les 3 lieux les plus proches, le plus connu mis en avant, avec la distance (ex. depuis la Barrière : marché Nsam, Santa Lucia Ahala). **(S)**
-- [ ] Carte dans l'application (Leaflet + OpenStreetMap, sans clé payante). **(M)**
-- [ ] Itinéraire réel tracé sur la carte : distance et durée à pied, en voiture, à moto (OpenRouteService ou OSRM). **(M)**
-- [ ] Bouton « Y aller » : ouvre Google Maps, Waze ou Yango pour le guidage vocal. **(S)**
+- [x] Demander la position de l'utilisateur (avec son accord), ou la placer à la main sur la carte.
+- [x] Répertoire de Yaoundé : 103 marchés et supermarchés issus d'OpenStreetMap, triés (doublons, lieux non alimentaires), « connus » marqués d'une étoile (`src/data/lieuxYaounde.json`).
+- [ ] Compléter le répertoire : jours d'affluence, spécialités, horaires manquants ; signalement de lieux par les familles (avec validation). **(M)**
+- [x] Recommandations : marché connu le plus proche et supermarché le plus proche (ex. près d'Ahala : marché Nsam, Santa Lucia Ahala) + liste triée par distance.
+- [x] Carte dans l'application (Leaflet + OpenStreetMap, sans clé payante).
+- [x] Itinéraire réel tracé sur la carte : distance et durée en voiture/moto ou à pied (OSRM, routing.openstreetmap.de).
+- [x] Boutons « Y aller » : Google Maps, Waze. Yango : bouton expérimental, à confirmer sur téléphone.
 
 ### Planifier la sortie au marché
 - [ ] Répartir la liste de marché par lieu (marché pour le frais, supermarché pour l'emballé). **(M)**
