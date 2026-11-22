@@ -6,7 +6,20 @@
     "firestore": { "port": 8085 },
     "ui": { "enabled": false }
   },
-  "hosting": {
+  "hosting": [
+  {
+    "target": "legacy",
+    "public": "hosting-legacy",
+    "redirects": [
+      {
+        "regex": "^/(?P<path>([^_].*|_[^_].*)?)$",
+        "destination": "https://libiyo.web.app/:path",
+        "type": 301
+      }
+    ]
+  },
+  {
+    "target": "app",
     "public": "build",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**", "serve.json"],
     "cleanUrls": false,
@@ -33,7 +46,8 @@
         "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
       }
     ]
-  },
+  }
+  ],
   "functions": [
     {
       "source": "functions",

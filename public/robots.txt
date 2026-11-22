@@ -5,4 +5,4 @@ Allow: /
 Disallow: /famille-dashboard/
 Disallow: /configurer-famille
 
-Sitemap: https://cuisineafricaineapp.web.app/sitemap.xml
+Sitemap: https://libiyo.web.app/sitemap.xml
