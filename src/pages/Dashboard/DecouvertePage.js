@@ -9,7 +9,7 @@ import ExploreRoundedIcon from '@mui/icons-material/ExploreRounded';
 import { enqueueSnackbar } from 'notistack';
 
 import { createPlat } from '../../services/platService';
-import { GEMINI_API_KEY, generateText } from '../../services/gemini';
+import { AI_READY, generateText } from '../../services/gemini';
 import { normalize } from '../../utils';
 import { EmptyState, FilterChips, LoadingGrid, PageHeader } from '../../components/ui';
 import { DECOUVERTE_CATEGORIES } from '../../constants';
@@ -66,7 +66,7 @@ const fetchDishImage = async (dishName) => {
 };
 
 const fetchNewDishesWithGemini = async (existingDishNames = [], batchSize = 12) => {
-  if (!GEMINI_API_KEY) return [];
+  if (!AI_READY) return [];
   const categories = DECOUVERTE_CATEGORIES;
   const prompt = `
       Recherche et génère une liste de ${batchSize} plats culinaires uniques, incluant des plats africains et internationaux, pour des catégories variées parmi : ${categories.join(', ')}. Les plats doivent être différents des suivants : ${existingDishNames.join(', ') || 'aucun'}. Fournis les informations suivantes pour chaque plat en français dans un format JSON structuré entouré de \`\`\`json\n...\n\`\`\` :
@@ -137,7 +137,7 @@ function DecouvertePage() {
     if (dishes.length) {
       setPlats(dishes);
       setSeen((prev) => [...prev, ...dishes.map((d) => d.nom)]);
-    } else if (GEMINI_API_KEY) {
+    } else if (AI_READY) {
       enqueueSnackbar('Impossible de générer de nouveaux plats pour le moment.', { variant: 'error' });
     }
     setLoading(false);
@@ -186,14 +186,14 @@ function DecouvertePage() {
         title="Découverte"
         subtitle="Des idées de plats d'Afrique et du monde, imaginées par l'IA. Ajoutez celles qui vous tentent à votre livre de recettes."
         actions={
-          <Button variant="contained" startIcon={<AutoAwesomeRoundedIcon />} onClick={loadNewDishes} disabled={loading || !GEMINI_API_KEY}>
+          <Button variant="contained" startIcon={<AutoAwesomeRoundedIcon />} onClick={loadNewDishes} disabled={loading || !AI_READY}>
             {loading ? 'Recherche d\'idées…' : 'Nouvelles idées'}
           </Button>
         }
       />
 
-      {!GEMINI_API_KEY ? (
-        <EmptyState icon={<ExploreRoundedIcon />} title="Découverte indisponible" description="Ajoutez REACT_APP_GEMINI_API_KEY (et éventuellement REACT_APP_PEXELS_API_KEY pour les photos) dans le fichier .env, puis relancez l'application." />
+      {!AI_READY ? (
+        <EmptyState icon={<ExploreRoundedIcon />} title="Découverte indisponible" description="L'assistant IA n'est pas disponible pour le moment. Rechargez l'application et réessayez." />
       ) : (
         <>
           <FilterChips options={DECOUVERTE_CATEGORIES} value={category} onChange={setCategory} allLabel="Tous les repas" sx={{ mb: 3 }} />
