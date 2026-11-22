@@ -16,6 +16,7 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import WarningRoundedIcon from '@mui/icons-material/WarningRounded';
 import RemoveShoppingCartRoundedIcon from '@mui/icons-material/RemoveShoppingCartRounded';
 import EventBusyRoundedIcon from '@mui/icons-material/EventBusyRounded';
+import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
 import { enqueueSnackbar } from 'notistack';
 
 import {
@@ -42,6 +43,16 @@ function StatusChip({ ing }) {
       <Chip size="small" label={meta.label} color={meta.color} variant={ing.status === INGREDIENT_STATUS.IN_USE ? 'outlined' : 'filled'} />
       {ing.expiringSoon && ing.status !== INGREDIENT_STATUS.EXPIRED && <Chip size="small" label="Expire bientôt" color="warning" variant="outlined" />}
     </Box>
+  );
+}
+
+/** Petit indicateur « recharge automatique » à côté du nom. */
+function AutoBadge({ ing }) {
+  if (!ing.rechargeAuto || !(parseFloat(ing.quantiteRecharge) > 0)) return null;
+  return (
+    <Tooltip title={`Recharge automatique à ${formatNumber(parseFloat(ing.quantiteRecharge))} ${ing.uniteMesure || ''}`}>
+      <AutorenewRoundedIcon color="secondary" sx={{ fontSize: 18, flexShrink: 0 }} aria-label="Recharge automatique" />
+    </Tooltip>
   );
 }
 
@@ -273,7 +284,7 @@ function StockPage() {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Avatar src={ing.photoURL || undefined} variant="rounded" sx={{ borderRadius: '12px', bgcolor: tint('secondary', 0.14), color: 'secondary.main' }}>{(ing.nom || '?').charAt(0).toUpperCase()}</Avatar>
                         <Box sx={{ minWidth: 0 }}>
-                          <Typography sx={{ fontWeight: 700 }}>{ing.nom}</Typography>
+                          <Typography sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 0.5 }}>{ing.nom}<AutoBadge ing={ing} /></Typography>
                           <Typography variant="caption" color="text.secondary">{[ing.categorie, ing.alias].map(asText).filter(Boolean).join(' · ')}</Typography>
                         </Box>
                       </Box>
@@ -298,7 +309,7 @@ function StockPage() {
               <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center', mb: 1.25 }}>
                 <Avatar src={ing.photoURL || undefined} variant="rounded" sx={{ borderRadius: '12px', bgcolor: tint('secondary', 0.14), color: 'secondary.main' }}>{(ing.nom || '?').charAt(0).toUpperCase()}</Avatar>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography sx={{ fontWeight: 700 }} noWrap>{ing.nom}</Typography>
+                  <Typography sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 0.5 }} noWrap>{ing.nom}<AutoBadge ing={ing} /></Typography>
                   <Typography variant="caption" color="text.secondary">Péremption : {formatDate(ing.datePeremption)}</Typography>
                 </Box>
                 <StatusChip ing={ing} />

@@ -1,105 +1,95 @@
 // src/services/platService.js
-import { db } from '../firebase/firebase';
+// Deux sortes de plats :
+//  - les plats de la famille (privés) : `familleId` = famille du compte ;
+//  - le catalogue de l'application (`public: true`) : visible par tous, chaque famille peut
+//    en ajouter une copie à ses plats.
+import { db, auth } from '../firebase/firebase';
 import {
-  collection,
-  addDoc,
-  getDocs,
-  doc,
-  updateDoc,
-  deleteDoc,
-  getDoc,
+  collection, addDoc, getDocs, doc, updateDoc, deleteDoc, getDoc, query, where, serverTimestamp,
 } from 'firebase/firestore';
+import { currentFamilleId } from './familleService';
+import { getIngredients, createIngredient } from './ingredientService';
+import { normalize } from '../utils';
 
 const platsCollectionRef = collection(db, 'plats');
 
-/**
- * Crée un nouveau plat dans Firestore.
- * @param {object} platData - Les données du plat (nom, description, photoURL, tempsPreparation, tempsCuisson, difficulte, instructions, ingredientsNecessaires).
- * @returns {Promise<string>} L'ID du document créé.
- */
+const PROTECTED = ['familleId', 'public', 'createdBy', 'createdAt', 'catalogueId', 'id'];
+const withoutProtected = (data) => {
+  const copy = { ...data };
+  PROTECTED.forEach((k) => delete copy[k]);
+  return copy;
+};
+
+/** Crée un plat privé dans la famille du compte connecté. */
 const createPlat = async (platData) => {
-  try {
-    const docRef = await addDoc(platsCollectionRef, platData);
-    console.log('Document plat créé avec l\'ID : ', docRef.id);
-    return docRef.id;
-  } catch (e) {
-    console.error('Erreur lors de la création du plat : ', e);
-    throw e;
-  }
+  const docRef = await addDoc(platsCollectionRef, {
+    ...withoutProtected(platData),
+    familleId: currentFamilleId(),
+    public: false,
+    createdBy: auth.currentUser?.uid || null,
+    createdAt: serverTimestamp(),
+  });
+  return docRef.id;
 };
 
-/**
- * Récupère tous les plats depuis Firestore.
- * @returns {Promise<Array<object>>} Une liste d'objets plat avec leurs IDs.
- */
+/** Plats de la famille du compte connecté. */
 const getPlats = async () => {
-  try {
-    const data = await getDocs(platsCollectionRef);
-    return data.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
-  } catch (e) {
-    console.error('Erreur lors de la récupération des plats : ', e);
-    throw e;
-  }
+  const q = query(platsCollectionRef, where('familleId', '==', currentFamilleId()));
+  const data = await getDocs(q);
+  return data.docs.map((d) => ({ ...d.data(), id: d.id }));
 };
 
-/**
- * Récupère un plat spécifique par son ID.
- * @param {string} id - L'ID du plat.
- * @returns {Promise<object|null>} L'objet plat ou null si non trouvé.
- */
+/** Catalogue de l'application (accessible à tous). */
+const getCatalogue = async () => {
+  const q = query(platsCollectionRef, where('public', '==', true));
+  const data = await getDocs(q);
+  return data.docs.map((d) => ({ ...d.data(), id: d.id }));
+};
+
 const getPlatById = async (id) => {
   try {
-    const docRef = doc(db, 'plats', id);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return { ...docSnap.data(), id: docSnap.id };
-    } else {
-      console.log("Aucun document plat trouvé pour cet ID !");
-      return null;
-    }
+    const snap = await getDoc(doc(db, 'plats', id));
+    if (!snap.exists()) return null;
+    const p = snap.data();
+    if (!p.public && p.familleId !== currentFamilleId()) return null;
+    return { ...p, id: snap.id };
   } catch (e) {
-    console.error('Erreur lors de la récupération du plat par ID : ', e);
+    if (e.code === 'permission-denied') return null;
     throw e;
   }
 };
 
-/**
- * Met à jour un plat existant dans Firestore.
- * @param {string} id - L'ID du plat à mettre à jour.
- * @param {object} updatedData - Les données à mettre à jour.
- * @returns {Promise<void>}
- */
 const updatePlat = async (id, updatedData) => {
-  try {
-    const platDoc = doc(db, 'plats', id);
-    await updateDoc(platDoc, updatedData);
-    console.log('Plat mis à jour avec succès : ', id);
-  } catch (e) {
-    console.error('Erreur lors de la mise à jour du plat : ', e);
-    throw e;
-  }
+  await updateDoc(doc(db, 'plats', id), withoutProtected(updatedData));
+};
+
+const deletePlat = async (id) => {
+  await deleteDoc(doc(db, 'plats', id));
 };
 
 /**
- * Supprime un plat de Firestore.
- * @param {string} id - L'ID du plat à supprimer.
- * @returns {Promise<void>}
+ * Ajoute un plat du catalogue aux plats de la famille. Les ingrédients sont rattachés au stock
+ * de la famille (par nom) ; ceux qui manquent sont créés avec un stock à 0.
  */
-const deletePlat = async (id) => {
-  try {
-    const platDoc = doc(db, 'plats', id);
-    await deleteDoc(platDoc);
-    console.log('Plat supprimé avec succès : ', id);
-  } catch (e) {
-    console.error('Erreur lors de la suppression du plat : ', e);
-    throw e;
+const addFromCatalogue = async (plat) => {
+  const familleIngredients = await getIngredients();
+  const byName = new Map(familleIngredients.map((i) => [normalize(i.nom || ''), i]));
+  const ingredientsNecessaires = [];
+  for (const ing of plat.ingredientsNecessaires || []) {
+    const key = normalize(ing.nom || '');
+    if (!key) continue;
+    let local = byName.get(key);
+    if (!local) {
+      const id = await createIngredient({ nom: ing.nom, uniteMesure: ing.uniteMesure || '', categorie: ing.categorie || '' });
+      local = { id, nom: ing.nom, uniteMesure: ing.uniteMesure || '' };
+      byName.set(key, local);
+    }
+    ingredientsNecessaires.push({ ...ing, ingredientId: local.id });
   }
+  const { id: catalogueId, ...rest } = plat;
+  const newId = await createPlat({ ...rest, ingredientsNecessaires });
+  await updateDoc(doc(db, 'plats', newId), { catalogueId });
+  return newId;
 };
 
-export {
-  createPlat,
-  getPlats,
-  getPlatById,
-  updatePlat,
-  deletePlat
-};
+export { createPlat, getPlats, getCatalogue, getPlatById, updatePlat, deletePlat, addFromCatalogue };

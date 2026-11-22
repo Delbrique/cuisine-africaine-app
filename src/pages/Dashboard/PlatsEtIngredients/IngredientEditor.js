@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert, Box, Button, InputAdornment, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Collapse, FormControlLabel, InputAdornment, Switch, TextField, Typography } from '@mui/material';
 import { ChipSelect, PhotoPicker, ResponsiveDialog } from '../../../components/ui';
 import { INGREDIENT_CATEGORIES } from '../../../constants';
 import { INGREDIENT_STATUS } from '../../../services/ingredientService';
@@ -8,6 +8,7 @@ import { asText, toDate } from '../../../utils';
 const empty = {
   nom: '', uniteMesure: '', categorie: '', photoURL: '', prix: '', alias: '',
   stockQuantity: '0', datePeremption: '', seuilMinimum: '0', status: INGREDIENT_STATUS.NOT_USED, totalConsumedQuantity: 0,
+  rechargeAuto: false, quantiteRecharge: '',
 };
 
 /**
@@ -36,11 +37,16 @@ export default function IngredientEditor({ open, ingredient, withStock = false, 
       seuilMinimum: ingredient.seuilMinimum !== undefined ? String(ingredient.seuilMinimum) : '0',
       datePeremption: d ? d.toISOString().split('T')[0] : '',
       totalConsumedQuantity: ingredient.totalConsumedQuantity || 0,
+      rechargeAuto: Boolean(ingredient.rechargeAuto),
+      quantiteRecharge: ingredient.quantiteRecharge ? String(ingredient.quantiteRecharge) : '',
     });
   }, [open, ingredient]);
 
   const submit = async () => {
     if (!form.categorie) return setError('Choisissez une catégorie.');
+    if (withStock && form.rechargeAuto && !(parseFloat(form.quantiteRecharge) > 0)) {
+      return setError('Indiquez la quantité de recharge (supérieure à 0).');
+    }
     const base = { nom: form.nom, uniteMesure: form.uniteMesure, categorie: form.categorie, photoURL: form.photoURL, prix: parseFloat(form.prix) };
     const data = withStock
       ? {
@@ -51,6 +57,8 @@ export default function IngredientEditor({ open, ingredient, withStock = false, 
           seuilMinimum: parseFloat(form.seuilMinimum) || 0,
           status: form.status || INGREDIENT_STATUS.NOT_USED,
           totalConsumedQuantity: parseFloat(form.totalConsumedQuantity) || 0,
+          rechargeAuto: Boolean(form.rechargeAuto),
+          quantiteRecharge: parseFloat(form.quantiteRecharge) || 0,
         }
       : base;
     setBusy(true);
@@ -104,6 +112,24 @@ export default function IngredientEditor({ open, ingredient, withStock = false, 
                 helperText="Alerte en dessous" InputProps={{ endAdornment: <InputAdornment position="end">{unit}</InputAdornment> }} />
               <TextField label="Péremption" type="date" value={form.datePeremption} onChange={(e) => set({ datePeremption: e.target.value })} InputLabelProps={{ shrink: true }}
                 sx={{ gridColumn: { xs: 'span 2', sm: 'auto' } }} />
+            </Box>
+            <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+              <FormControlLabel
+                control={<Switch checked={Boolean(form.rechargeAuto)} onChange={(e) => set({ rechargeAuto: e.target.checked })} color="secondary" />}
+                label={<Typography sx={{ fontWeight: 650 }}>Recharge automatique</Typography>}
+              />
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+                {form.rechargeAuto
+                  ? 'Dès que le produit est épuisé ou passe sous le seuil, son stock remonte tout seul à la quantité ci-dessous.'
+                  : 'Désactivée : le produit sera ajouté à la liste de marché quand il manquera, et rechargé quand vous le cocherez.'}
+              </Typography>
+              <Collapse in={Boolean(form.rechargeAuto)}>
+                <TextField
+                  label="Quantité de recharge" type="number" value={form.quantiteRecharge} onChange={(e) => set({ quantiteRecharge: e.target.value })}
+                  inputProps={{ step: '0.01', min: 0 }} sx={{ mt: 2, width: { xs: '100%', sm: 260 } }}
+                  InputProps={{ endAdornment: <InputAdornment position="end">{unit}</InputAdornment> }}
+                />
+              </Collapse>
             </Box>
           </Box>
         )}

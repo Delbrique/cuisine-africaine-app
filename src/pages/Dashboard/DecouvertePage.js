@@ -90,13 +90,15 @@ const fetchNewDishesWithGemini = async (existingDishNames = [], batchSize = 12) 
       Assure-toi que chaque plat est unique, varié, et n'a pas été généré précédemment. Pour les boissons et apéritifs, adapte les champs (ex. tempsCuisson peut être 0). Retourne uniquement le JSON entouré de \`\`\`json.
     `;
   try {
-    const text = await generateText(prompt);
-    const match = text.match(/```json\s*([\s\S]*?)\s*```/);
-    if (!match) {
-      console.warn('Réponse JSON invalide :', text);
+    // JSON forcé : plus de réponse inexploitable à cause d'un bloc ```json manquant.
+    const text = await generateText(prompt, { json: true });
+    const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    const data = JSON.parse(match ? match[1] : text);
+    const parsed = (Array.isArray(data) ? data : data?.plats || []).filter((d) => d && d.nom);
+    if (!parsed.length) {
+      console.warn('Réponse JSON vide :', text);
       return [];
     }
-    const parsed = JSON.parse(match[1]);
     const photos = await Promise.all(parsed.map((d) => fetchDishImage(d.nom)));
     return parsed.map((dish, index) => ({
       ...dish,

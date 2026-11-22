@@ -1,7 +1,6 @@
 // 📁 src/components/Communication/ChatPage.js
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { collection, getDocs } from 'firebase/firestore';
 import { v4 as uuidv4 } from 'uuid';
 import useSound from 'use-sound';
 import EmojiPicker from 'emoji-picker-react';
@@ -24,8 +23,9 @@ import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
 import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRounded';
 import { enqueueSnackbar } from 'notistack';
 
-import { auth, db } from '../../firebase/firebase';
+import { auth } from '../../firebase/firebase';
 import { GroupService } from '../../services/GroupService';
+import { getMembres } from '../../services/membreService';
 import sendSound from '../../assets/sounds/send.mp3';
 import receiveSound from '../../assets/sounds/receive.mp3';
 import CreateGroupModal from '../CreateGroupModal';
@@ -102,7 +102,8 @@ export default function ChatPage() {
   const currentGroup = groups?.find((g) => g.id === groupId) || null;
 
   useEffect(() => {
-    getDocs(collection(db, 'membresFamille')).then((s) => setPeople(s.docs.map((d) => ({ id: d.id, ...d.data() })))).catch(() => {});
+    // Noms et photos des expéditeurs : uniquement les membres de sa famille.
+    getMembres().then((list) => setPeople(list.map((m) => ({ ...m, id: m.compteUid || m.id })))).catch(() => {});
     if (!auth.currentUser) {
       setGroups([]);
       return undefined;

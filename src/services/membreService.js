@@ -1,107 +1,74 @@
 // src/services/membreService.js
-
-import { db } from '../firebase/firebase';
+// Membres de la famille du compte connecté. Une famille ne voit jamais les membres d'une autre.
+import { db, auth } from '../firebase/firebase';
 import {
-  collection,
-  doc,
-  setDoc,
-  getDocs,
-  getDoc,
-  updateDoc,
-  deleteDoc,
+  collection, doc, setDoc, getDocs, getDoc, updateDoc, deleteDoc, query, where, serverTimestamp,
 } from 'firebase/firestore';
+import { currentFamilleId, invitedMemberId, normalizeEmail } from './familleService';
 
 const membresCollectionRef = collection(db, 'membresFamille');
 
+// Champs qu'aucun formulaire ne doit pouvoir modifier.
+const PROTECTED = ['familleId', 'compteUid', 'admin', 'inviteId', 'createdAt', 'joinedAt'];
+const withoutProtected = (data) => {
+  const copy = { ...data };
+  PROTECTED.forEach((k) => delete copy[k]);
+  return copy;
+};
+
 /**
- * Crée un nouveau membre de la famille dans Firestore.
- * @param {object} membreData - Les données du membre (nom, age, etc.).
- * @returns {Promise<void>}
+ * Ajoute un membre à la famille du compte connecté.
+ * - sa propre fiche (uid du compte) → document `membresFamille/{uid}` ;
+ * - un proche → document `membresFamille/{familleId}__{email}`. S'il se connecte plus tard avec
+ *   Google sous cet e-mail, il rejoint automatiquement cette famille.
  */
 const createMembre = async (membreData) => {
-  try {
-    const membreDocRef = doc(membresCollectionRef, membreData.uid || membreData.email);
-    await setDoc(membreDocRef, membreData);
-    console.log(`Document membre créé avec l'ID : ${membreData.uid || membreData.email}`);
-  } catch (e) {
-    console.error('Erreur lors de la création du membre : ', e);
-    throw e;
+  const familleId = currentFamilleId();
+  const isOwnProfile = membreData.uid && membreData.uid === auth.currentUser?.uid;
+  const email = normalizeEmail(membreData.email);
+  const id = isOwnProfile ? membreData.uid : invitedMemberId(familleId, email);
+  if (!isOwnProfile) {
+    const existing = await getDoc(doc(db, 'membresFamille', id));
+    if (existing.exists()) throw new Error('Un membre avec cet e-mail existe déjà dans votre famille.');
   }
+  await setDoc(doc(membresCollectionRef, id), {
+    ...withoutProtected(membreData),
+    email,
+    uid: id,
+    familleId,
+    createdAt: serverTimestamp(),
+  });
+  return id;
 };
 
-/**
- * Récupère tous les membres de la famille depuis Firestore.
- * @returns {Promise<Array<object>>} Une liste d'objets membre avec leurs IDs.
- */
+/** Membres de la famille du compte connecté. */
 const getMembres = async () => {
-  try {
-    const data = await getDocs(membresCollectionRef);
-    return data.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
-  } catch (e) {
-    console.error('Erreur lors de la récupération des membres : ', e);
-    throw e;
-  }
+  const q = query(membresCollectionRef, where('familleId', '==', currentFamilleId()));
+  const data = await getDocs(q);
+  return data.docs.map((d) => ({ ...d.data(), id: d.id }));
 };
 
-
-/**
- * Récupère un membre de la famille spécifique par son ID.
- * @param {string} id - L'ID du membre.
- * @returns {Promise<object|null>} L'objet membre ou null si non trouvé.
- */
+/** Un membre de la famille (null s'il n'existe pas ou n'appartient pas à la famille). */
 const getMembreById = async (id) => {
   try {
-    const docRef = doc(db, 'membresFamille', id);
-    const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
-      return { ...docSnap.data(), id: docSnap.id };
-    } else {
-      console.log("Aucun document trouvé pour cet ID !");
-      return null;
-    }
+    const snap = await getDoc(doc(db, 'membresFamille', id));
+    if (!snap.exists() || snap.data().familleId !== currentFamilleId()) return null;
+    return { ...snap.data(), id: snap.id };
   } catch (e) {
-    console.error('Erreur lors de la récupération du membre : ', e);
+    if (e.code === 'permission-denied') return null;
     throw e;
   }
 };
 
-/**
- * Met à jour un membre de la famille existant dans Firestore.
- * @param {string} id - L'ID du membre à mettre à jour.
- * @param {object} updatedData - Les données à mettre à jour.
- * @returns {Promise<void>}
- */
 const updateMembre = async (id, updatedData) => {
-  try {
-    const membreDoc = doc(db, 'membresFamille', id);
-    await updateDoc(membreDoc, updatedData);
-    console.log('Membre mis à jour avec succès : ', id);
-  } catch (e) {
-    console.error('Erreur lors de la mise à jour du membre : ', e);
-    throw e;
-  }
+  const data = withoutProtected(updatedData);
+  if (data.email !== undefined) data.email = normalizeEmail(data.email);
+  await updateDoc(doc(db, 'membresFamille', id), data);
 };
 
-/**
- * Supprime un membre de la famille de Firestore.
- * @param {string} id - L'ID du membre à supprimer.
- * @returns {Promise<void>}
- */
 const deleteMembre = async (id) => {
-  try {
-    const membreDoc = doc(db, 'membresFamille', id);
-    await deleteDoc(membreDoc);
-    console.log('Membre supprimé avec succès : ', id);
-  } catch (e) {
-    console.error('Erreur lors de la suppression du membre : ', e);
-    throw e;
-  }
+  if (id === auth.currentUser?.uid) throw new Error('Vous ne pouvez pas supprimer votre propre fiche.');
+  await deleteDoc(doc(db, 'membresFamille', id));
 };
 
-export {
-  createMembre,
-  getMembres, // <-- Assurez-vous que getMembres est bien exporté ici
-  getMembreById,
-  updateMembre,
-  deleteMembre
-};
+export { createMembre, getMembres, getMembreById, updateMembre, deleteMembre };

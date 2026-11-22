@@ -1,4 +1,5 @@
 // src/services/ingredientService.js
+// Ingrédients et stock de la famille du compte connecté.
 import { db } from '../firebase/firebase';
 import {
   collection,
@@ -9,9 +10,19 @@ import {
   deleteDoc,
   getDoc,
   onSnapshot,
+  query,
+  where,
 } from 'firebase/firestore';
+import { currentFamilleId } from './familleService';
 
 const ingredientsCollectionRef = collection(db, 'ingredients');
+const familleQuery = () => query(ingredientsCollectionRef, where('familleId', '==', currentFamilleId()));
+const strip = (data) => {
+  const copy = { ...data };
+  delete copy.familleId;
+  delete copy.id;
+  return copy;
+};
 
 // Define ingredient status constants
 export const INGREDIENT_STATUS = {
@@ -31,7 +42,8 @@ const createIngredient = async (ingredientData) => {
   try {
     // Set default stock-related values if not provided
     const dataToSave = {
-      ...ingredientData,
+      ...strip(ingredientData),
+      familleId: currentFamilleId(),
       stockQuantity: ingredientData.stockQuantity !== undefined ? parseFloat(ingredientData.stockQuantity) : 0,
       datePeremption: ingredientData.datePeremption || null, // Firebase Timestamp or null
       seuilMinimum: ingredientData.seuilMinimum !== undefined ? parseFloat(ingredientData.seuilMinimum) : 0,
@@ -53,7 +65,7 @@ const createIngredient = async (ingredientData) => {
  */
 const getIngredients = async () => {
   try {
-    const data = await getDocs(ingredientsCollectionRef);
+    const data = await getDocs(familleQuery());
     return data.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
   } catch (e) {
     console.error('Erreur lors de la récupération des ingrédients : ', e);
@@ -67,7 +79,7 @@ const getIngredients = async () => {
  */
 const listenIngredients = (onData, onError) =>
   onSnapshot(
-    ingredientsCollectionRef,
+    familleQuery(),
     (snap) => onData(snap.docs.map((d) => ({ ...d.data(), id: d.id }))),
     (e) => {
       console.error("Erreur lors de l'écoute des ingrédients : ", e);
@@ -84,7 +96,7 @@ const getIngredientById = async (id) => {
   try {
     const docRef = doc(db, 'ingredients', id);
     const docSnap = await getDoc(docRef);
-    if (docSnap.exists()) {
+    if (docSnap.exists() && docSnap.data().familleId === currentFamilleId()) {
       return { ...docSnap.data(), id: docSnap.id };
     } else {
       console.log("Aucun document ingrédient trouvé pour cet ID !");
@@ -105,7 +117,7 @@ const getIngredientById = async (id) => {
 const updateIngredient = async (id, updatedData) => {
   try {
     const ingredientDoc = doc(db, 'ingredients', id);
-    await updateDoc(ingredientDoc, updatedData);
+    await updateDoc(ingredientDoc, strip(updatedData));
     console.log('Ingrédient mis à jour avec succès : ', id);
   } catch (e) {
     console.error('Erreur lors de la mise à jour de l\'ingrédient : ', e);
@@ -118,9 +130,11 @@ const updateIngredient = async (id, updatedData) => {
  * @param {string} ingredientId - L'ID de l'ingrédient.
  * @param {number} quantityChange - La quantité à ajouter (positif) ou à soustraire (négatif).
  * @param {string} [initialStatus] - Statut initial de l'ingrédient avant la mise à jour (optionnel, pour affiner la logique de statut).
+ * @param {object} [options]
+ * @param {boolean} [options.countConsumption=true] - false pour une simple correction (ex. annulation d'une recharge) : n'augmente pas la consommation.
  * @returns {Promise<void>}
  */
-const updateIngredientStock = async (ingredientId, quantityChange, initialStatus = null) => {
+const updateIngredientStock = async (ingredientId, quantityChange, initialStatus = null, { countConsumption = true } = {}) => {
   try {
     const ingredientRef = doc(db, 'ingredients', ingredientId);
     const docSnap = await getDoc(ingredientRef);
@@ -166,7 +180,7 @@ const updateIngredientStock = async (ingredientId, quantityChange, initialStatus
       status: newStatus,
     };
 
-    if (quantityChange < 0) {
+    if (quantityChange < 0 && countConsumption) {
         updateData.totalConsumedQuantity = currentTotalConsumed + Math.abs(quantityChange);
     }
 

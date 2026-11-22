@@ -1,3 +1,8 @@
 # https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /
+# Espaces privés (réservés aux utilisateurs connectés)
+Disallow: /famille-dashboard/
+Disallow: /configurer-famille
+
+Sitemap: https://cuisineafricaineapp.web.app/sitemap.xml

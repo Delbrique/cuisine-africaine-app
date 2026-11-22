@@ -1,50 +1,87 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
+import { getRedirectResult, onAuthStateChanged } from 'firebase/auth';
 import { Navigate, useLocation } from 'react-router-dom';
 import { auth } from '../firebase/firebase';
-import { getMembreById } from '../services/membreService';
+import { ensureFamily, setSession } from '../services/familleService';
+import { migrateLegacyShoppingList } from '../services/shoppingList';
 import SplashScreen from '../components/SplashScreen';
 
-const AuthContext = createContext({ user: null, profile: null, loading: true, refreshProfile: () => {} });
+const AuthContext = createContext({
+  user: null, profile: null, familleId: null, loading: true, error: '', refreshProfile: () => {},
+});
 
+/** Charge (ou crée au premier passage) la fiche et la famille du compte, puis ouvre la session famille. */
 const loadProfile = async (user) => {
-  if (!user) return null;
+  if (!user) {
+    setSession(null);
+    return { profile: null, error: '' };
+  }
   try {
-    // Fiche créée à l'inscription (id = uid) ou ajoutée par un proche (id = email).
-    return (await getMembreById(user.uid)) || (user.email ? await getMembreById(user.email) : null);
-  } catch {
-    return null;
+    const profile = await ensureFamily(user);
+    setSession({ uid: user.uid, familleId: profile?.familleId });
+    migrateLegacyShoppingList();
+    return { profile, error: '' };
+  } catch (err) {
+    console.error('Impossible de charger la famille :', err);
+    setSession(null);
+    return { profile: null, error: 'Impossible de charger votre famille. Vérifiez votre connexion puis réessayez.' };
   }
 };
 
 /** Un seul abonnement Firebase Auth pour toute l'application. */
 export function AuthProvider({ children }) {
-  const [state, setState] = useState({ user: null, profile: null, loading: true });
+  const [state, setState] = useState({ user: null, profile: null, loading: true, error: '' });
 
-  useEffect(
-    () =>
-      onAuthStateChanged(auth, async (user) => {
-        setState({ user, profile: await loadProfile(user), loading: false });
-      }),
-    []
-  );
-
-  const refreshProfile = useCallback(async () => {
-    const profile = await loadProfile(auth.currentUser);
-    setState((s) => ({ ...s, profile }));
+  useEffect(() => {
+    // Retour d'une connexion Google par redirection (mobile / app installée) : on garde l'erreur éventuelle
+    // pour l'afficher sur la page de connexion.
+    getRedirectResult(auth).catch((err) => {
+      console.error('Connexion Google (redirection) :', err);
+      sessionStorage.setItem('authRedirectError', err.code || 'auth/unknown');
+    });
+    return onAuthStateChanged(auth, async (user) => {
+      // Le compte change : plus aucune donnée de l'ancienne famille n'est accessible.
+      setState((s) => ({ ...s, user, profile: s.user?.uid === user?.uid ? s.profile : null }));
+      const { profile, error } = await loadProfile(user);
+      setState({ user, profile, loading: false, error });
+    });
   }, []);
 
-  return <AuthContext.Provider value={{ ...state, refreshProfile }}>{children}</AuthContext.Provider>;
+  const refreshProfile = useCallback(async () => {
+    const { profile, error } = await loadProfile(auth.currentUser);
+    setState((s) => ({ ...s, profile, error }));
+    return profile;
+  }, []);
+
+  const value = { ...state, familleId: state.profile?.familleId || null, refreshProfile };
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);
 
-/** Route réservée aux utilisateurs connectés. */
+/** Route réservée aux utilisateurs connectés, dont la famille est chargée. */
 export function RequireAuth({ children }) {
-  const { user, loading } = useAuth();
+  const { user, profile, loading, error, refreshProfile } = useAuth();
   const location = useLocation();
   if (loading) return <SplashScreen />;
   if (!user) return <Navigate to="/login" replace state={{ from: location }} />;
+  // Sans famille chargée, aucune page privée ne s'affiche : jamais de données mélangées.
+  if (!profile?.familleId) {
+    if (!error) return <SplashScreen />;
+    return (
+      <div style={{ minHeight: '100dvh', display: 'grid', placeItems: 'center', padding: 24, textAlign: 'center' }}>
+        <div>
+          <p style={{ fontSize: 17, marginBottom: 16 }}>{error}</p>
+          <button
+            type="button" onClick={refreshProfile}
+            style={{ padding: '10px 18px', borderRadius: 12, border: 0, background: '#C2461A', color: '#fff', fontWeight: 700, cursor: 'pointer' }}
+          >
+            Réessayer
+          </button>
+        </div>
+      </div>
+    );
+  }
   return children;
 }
 

@@ -18,7 +18,9 @@ import { enqueueSnackbar } from 'notistack';
 
 import { getMembres, deleteMembre } from '../../services/membreService';
 import { getPlats } from '../../services/platService';
-import { EmptyState, LoadingGrid, PageHeader, patternBg, useConfirm } from '../../components/ui';
+import {
+  EmptyState, LoadingGrid, PageHeader, SelectCheck, SelectionBar, SelectToggleButton, patternBg, selectableSx, useConfirm, useSelection,
+} from '../../components/ui';
 import { label } from '../../components/membres/memberModel';
 import { friendlyError, initials, normalize } from '../../utils';
 import { tint } from '../../theme/theme';
@@ -129,21 +131,24 @@ function MemberDetail({ membre, plats, onClose, onEdit, onDelete }) {
   );
 }
 
-function MemberCard({ membre, onOpen, onEdit, onDelete }) {
+function MemberCard({ membre, onOpen, onEdit, onDelete, checked, selecting, onToggle }) {
   const [anchor, setAnchor] = useState(null);
   const allergies = real(membre.allergiesConnues);
   const roles = real(membre.roleFamille);
 
   return (
-    <Card sx={{ position: 'relative', transition: 'all .2s', '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 18px 40px rgba(31,20,16,.1)' } }}>
-      <IconButton onClick={(e) => setAnchor(e.currentTarget)} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }} aria-label="Actions">
-        <MoreVertRoundedIcon />
-      </IconButton>
+    <Card sx={{ ...selectableSx(checked), overflow: 'visible', transition: 'all .2s', '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 18px 40px rgba(31,20,16,.1)' }, '&:hover .sel-check': { opacity: 1 } }}>
+      <SelectCheck checked={checked} selecting={selecting} onToggle={onToggle} />
+      {!selecting && (
+        <IconButton onClick={(e) => setAnchor(e.currentTarget)} sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }} aria-label="Actions">
+          <MoreVertRoundedIcon />
+        </IconButton>
+      )}
       <Menu anchorEl={anchor} open={Boolean(anchor)} onClose={() => setAnchor(null)}>
         <MenuItem onClick={() => { setAnchor(null); onEdit(); }}><ListItemIcon><EditRoundedIcon fontSize="small" /></ListItemIcon>Modifier</MenuItem>
         <MenuItem onClick={() => { setAnchor(null); onDelete(); }} sx={{ color: 'error.main' }}><ListItemIcon><DeleteOutlineRoundedIcon fontSize="small" color="error" /></ListItemIcon>Supprimer</MenuItem>
       </Menu>
-      <ButtonBase onClick={onOpen} sx={{ width: '100%', flexDirection: 'column', p: 3, pt: 3.5 }}>
+      <ButtonBase onClick={selecting ? onToggle : onOpen} sx={{ width: '100%', flexDirection: 'column', p: 3, pt: 3.5, borderRadius: '20px' }}>
         <Avatar src={membre.photoProfil || undefined} sx={{ width: 84, height: 84, mb: 1.75, fontSize: 28, bgcolor: 'primary.main', boxShadow: (t) => `0 0 0 4px ${t.vars.palette.background.paper}, 0 0 0 6px ${tint('primary', 0.25)(t)}` }}>
           {initials(membre.nomComplet)}
         </Avatar>
@@ -168,6 +173,8 @@ function MembresList() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const confirm = useConfirm();
+  const [busy, setBusy] = useState(false);
+  const selection = useSelection((membres || []).map((m) => m.id));
 
   const fetchMembres = async () => {
     try {
@@ -205,13 +212,41 @@ function MembresList() {
     [membres, search]
   );
 
+  const chosen = (membres || []).filter((m) => selection.isSelected(m.id));
+
+  const removeSelected = async () => {
+    if (chosen.length === 1) {
+      await handleDelete(chosen[0]);
+      return;
+    }
+    const ok = await confirm({
+      title: `Supprimer ${chosen.length} membres ?`,
+      message: `Les fiches de ${chosen.slice(0, 4).map((m) => m.nomComplet || 'membre sans nom').join(', ')}${chosen.length > 4 ? ` et ${chosen.length - 4} autre(s)` : ''} seront définitivement supprimées.`,
+      confirmLabel: `Supprimer (${chosen.length})`,
+    });
+    if (!ok) return;
+    setBusy(true);
+    const results = await Promise.allSettled(chosen.map((m) => deleteMembre(m.id)));
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    setBusy(false);
+    if (failed) enqueueSnackbar(`${chosen.length - failed} membre(s) supprimé(s), ${failed} échec(s).`, { variant: 'warning' });
+    else enqueueSnackbar(`${chosen.length} membres supprimés.`, { variant: 'success' });
+    selection.clear();
+    fetchMembres();
+  };
+
   return (
-    <Box>
+    <Box sx={{ pb: selection.selecting ? 12 : 0 }}>
       <PageHeader
         eyebrow="Famille"
         title="Les membres"
         subtitle="Profils, goûts et santé de chacun : de quoi cuisiner pour tout le monde."
-        actions={<Button variant="contained" startIcon={<PersonAddAlt1RoundedIcon />} onClick={() => navigate('/famille-dashboard/add-membre')}>Ajouter un membre</Button>}
+        actions={
+          <>
+            {membres && membres.length > 0 && <SelectToggleButton selection={selection} />}
+            <Button variant="contained" startIcon={<PersonAddAlt1RoundedIcon />} onClick={() => navigate('/famille-dashboard/add-membre')}>Ajouter un membre</Button>
+          </>
+        }
       />
 
       {membres && membres.length > 0 && (
@@ -234,9 +269,18 @@ function MembresList() {
         <>
           <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
             {filtered.map((m) => (
-              <MemberCard key={m.id} membre={m} onOpen={() => open(m)} onEdit={() => edit(m)} onDelete={() => handleDelete(m)} />
+              <MemberCard
+                key={m.id} membre={m} onOpen={() => open(m)} onEdit={() => edit(m)} onDelete={() => handleDelete(m)}
+                checked={selection.isSelected(m.id)} selecting={selection.selecting} onToggle={() => selection.toggle(m.id)}
+              />
             ))}
           </Box>
+          <SelectionBar
+            selection={selection} noun="membre" total={filtered.length} busy={busy}
+            onSelectAll={() => selection.selectAll(filtered.map((m) => m.id))}
+            onEdit={() => chosen[0] && edit(chosen[0])}
+            onDelete={removeSelected}
+          />
           {filtered.length === 0 && <Typography color="text.secondary" sx={{ mt: 2 }}>Aucun membre ne correspond à « {search} ».</Typography>}
         </>
       )}

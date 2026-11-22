@@ -22,6 +22,7 @@ import { enqueueSnackbar } from 'notistack';
 import { getPlats } from '../../services/platService';
 import { createPlanning, getMostRecentPlanning, updatePlanning } from '../../services/planningService';
 import { updateIngredientStock, getIngredientById } from '../../services/ingredientService';
+import { addToShoppingList as addItemsToShoppingList } from '../../services/shoppingList';
 import { auth } from '../../firebase/firebase';
 import { DishImage, PageHeader, ResponsiveDialog } from '../../components/ui';
 import SplashScreen from '../../components/SplashScreen';
@@ -311,13 +312,9 @@ function PlanningPage() {
       enqueueSnackbar("Ce plat n'a pas d'ingrédients à ajouter.", { variant: 'info' });
       return;
     }
-    const list = JSON.parse(localStorage.getItem('shoppingList')) || [];
-    plat.ingredientsNecessaires.forEach((ing) => {
-      const i = list.findIndex((x) => x.ingredientId === ing.ingredientId);
-      if (i > -1) list[i].quantite += ing.quantite;
-      else list.push({ ingredientId: ing.ingredientId, nom: ing.nom, quantite: ing.quantite, uniteMesure: ing.uniteMesure, checked: false });
-    });
-    localStorage.setItem('shoppingList', JSON.stringify(list));
+    addItemsToShoppingList(plat.ingredientsNecessaires.map((ing) => ({
+      ingredientId: ing.ingredientId, nom: ing.nom, quantite: ing.quantite, uniteMesure: ing.uniteMesure, checked: false,
+    })));
     enqueueSnackbar(`Ingrédients de « ${plat.nom} » ajoutés à la liste de marché.`, { variant: 'success' });
   };
 

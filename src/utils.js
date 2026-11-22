@@ -35,6 +35,13 @@ const AUTH_ERRORS = {
   'auth/network-request-failed': 'Pas de connexion internet. Vérifiez votre réseau.',
   'auth/popup-closed-by-user': 'La fenêtre Google a été fermée avant la fin.',
   'auth/cancelled-popup-request': 'La fenêtre Google a été fermée avant la fin.',
+  'auth/popup-blocked': 'Votre navigateur a bloqué la fenêtre Google. Autorisez les pop-ups ou réessayez.',
+  'auth/account-exists-with-different-credential': 'Un compte existe déjà avec cet e-mail : connectez-vous avec votre mot de passe.',
+  'auth/unauthorized-domain': 'Connexion Google non autorisée depuis cette adresse.',
+  'auth/user-disabled': 'Ce compte a été désactivé.',
+  'auth/web-storage-unsupported': 'Votre navigateur bloque le stockage nécessaire à la connexion (navigation privée ?).',
+  'auth/internal-error': 'La connexion a échoué. Réessayez.',
+  'permission-denied': "Accès refusé : cette donnée n'appartient pas à votre famille.",
 };
 
 /** Message lisible pour une erreur Firebase. */

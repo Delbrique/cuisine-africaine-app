@@ -1,6 +1,6 @@
 // src/components/LoginPage.js
-import React, { useState } from 'react';
-import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import React, { useEffect, useState } from 'react';
+import { signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signInWithRedirect } from 'firebase/auth';
 import { useLocation, useNavigate, Link as RouterLink } from 'react-router-dom';
 import { Alert, Box, Button, Divider, Link as MuiLink, TextField, Typography } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
@@ -36,7 +36,43 @@ function LoginPage() {
     run(() => signInWithEmailAndPassword(auth, email, password));
   };
 
-  const handleGoogleLogin = () => run(() => signInWithPopup(auth, new GoogleAuthProvider()));
+  // Erreur éventuelle au retour d'une connexion Google par redirection.
+  useEffect(() => {
+    const code = sessionStorage.getItem('authRedirectError');
+    if (code) {
+      sessionStorage.removeItem('authRedirectError');
+      setError(friendlyError({ code }));
+    }
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' }); // laisse toujours choisir le compte Google
+    // App installée sur l'écran d'accueil (iPhone surtout) : les fenêtres pop-up n'y fonctionnent pas.
+    const standalone = window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone;
+    setError('');
+    setBusy(true);
+    try {
+      if (standalone) {
+        await signInWithRedirect(auth, provider);
+        return; // la page part vers Google puis revient
+      }
+      await signInWithPopup(auth, provider);
+      navigate(next, { replace: true });
+    } catch (err) {
+      // Pop-up bloquée ou non prise en charge : on bascule sur la redirection.
+      if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment', 'auth/web-storage-unsupported'].includes(err.code)) {
+        await signInWithRedirect(auth, provider).catch((e) => { setError(friendlyError(e)); setBusy(false); });
+        return;
+      }
+      // Fenêtre fermée par l'utilisateur : ce n'est pas une erreur.
+      if (!['auth/popup-closed-by-user', 'auth/cancelled-popup-request'].includes(err.code)) {
+        console.error('Connexion Google :', err);
+        setError(friendlyError(err));
+      }
+      setBusy(false);
+    }
+  };
 
   return (
     <AuthLayout>
