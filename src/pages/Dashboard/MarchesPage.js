@@ -16,9 +16,11 @@ import DirectionsCarRoundedIcon from '@mui/icons-material/DirectionsCarRounded';
 import DirectionsWalkRoundedIcon from '@mui/icons-material/DirectionsWalkRounded';
 import NavigationRoundedIcon from '@mui/icons-material/NavigationRounded';
 import ScheduleRoundedIcon from '@mui/icons-material/ScheduleRounded';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import { enqueueSnackbar } from 'notistack';
 import { PageHeader, FilterChips } from '../../components/ui';
 import {
-  CENTRE_YAOUNDE, LIEUX, SOURCE, TYPES, VILLE, formatDistance, formatDuree, formatHoraires, itineraire,
+  CENTRE_YAOUNDE, LIEUX, SOURCE, TYPES, VILLE, destinationTexte, formatDistance, formatDuree, formatHoraires, itineraire,
   liensNavigation, parDistance, recommandations,
 } from '../../services/lieuxService';
 
@@ -146,6 +148,16 @@ export default function MarchesPage() {
 
   const liens = selected ? liensNavigation(pos, selected, mode) : null;
 
+  const copierPourYango = async (lieu) => {
+    const texte = destinationTexte(lieu);
+    try {
+      await navigator.clipboard.writeText(texte);
+      enqueueSnackbar(`« ${texte} » copié. Ouvrez Yango et collez-le comme destination.`, { variant: 'success', autoHideDuration: 6000 });
+    } catch {
+      enqueueSnackbar(`Copie impossible. Dans Yango, cherchez : ${texte}`, { variant: 'info', autoHideDuration: 8000 });
+    }
+  };
+
   return (
     <Box>
       <PageHeader
@@ -251,7 +263,9 @@ export default function MarchesPage() {
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
                 <Button variant="contained" startIcon={<NavigationRoundedIcon />} href={liens.googleMaps} target="_blank" rel="noopener">Google Maps</Button>
                 <Button variant="outlined" href={liens.waze} target="_blank" rel="noopener">Waze</Button>
-                <Button variant="outlined" color="inherit" href={liens.yango} sx={{ gridColumn: '1 / -1' }}>Yango (si l'appli est installée)</Button>
+                <Button variant="outlined" color="inherit" startIcon={<ContentCopyRoundedIcon />} onClick={() => copierPourYango(selected)} sx={{ gridColumn: '1 / -1' }}>
+                  Yango : copier la destination
+                </Button>
               </Box>
             </Box>
           ) : (
