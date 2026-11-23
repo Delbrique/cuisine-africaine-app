@@ -101,7 +101,12 @@ export const liensNavigation = (de, vers, mode = 'voiture') => {
   return {
     googleMaps: `https://www.google.com/maps/dir/?api=1${origin}&destination=${vers.lat},${vers.lon}&travelmode=${travelmode}`,
     waze: `https://waze.com/ul?ll=${vers.lat},${vers.lon}&navigate=yes`,
-    // Expérimental : format des liens Yandex Go (même éditeur que Yango) ; à confirmer sur téléphone.
-    yango: `yango://route?${de ? `start-lat=${de.lat}&start-lon=${de.lon}&` : ''}end-lat=${vers.lat}&end-lon=${vers.lon}`,
   };
 };
+
+/**
+ * Yango ne publie pas de lien d'ouverture utilisable sans identifiant de partenaire
+ * (yango.go.link et la redirection AppMetrica répondent 404/400 sans lui) : on propose
+ * de copier la destination, à coller dans l'application Yango.
+ */
+export const destinationTexte = (lieu) => `${lieu.nom}, ${VILLE}`;

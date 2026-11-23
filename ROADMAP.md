@@ -41,7 +41,8 @@ Cochez les cases au fur et à mesure (`[x]`).
 - [x] Recommandations : marché connu le plus proche et supermarché le plus proche (ex. près d'Ahala : marché Nsam, Santa Lucia Ahala) + liste triée par distance.
 - [x] Carte dans l'application (Leaflet + OpenStreetMap, sans clé payante).
 - [x] Itinéraire réel tracé sur la carte : distance et durée en voiture/moto ou à pied (OSRM, routing.openstreetmap.de).
-- [x] Boutons « Y aller » : Google Maps, Waze. Yango : bouton expérimental, à confirmer sur téléphone.
+- [x] Boutons « Y aller » : Google Maps, Waze. Yango : copie de la destination (pas de lien public sans identifiant de partenaire).
+- [ ] Yango : s'inscrire au programme partenaires (yango.com/en_int/partner-program) pour obtenir un lien qui ouvre l'app avec la destination. **(S)**
 
 ### Planifier la sortie au marché
 - [ ] Répartir la liste de marché par lieu (marché pour le frais, supermarché pour l'emballé). **(M)**
