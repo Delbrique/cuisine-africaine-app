@@ -9,7 +9,7 @@ import {
 } from 'firebase/firestore';
 import { currentFamilleId } from './familleService';
 import { getIngredients, createIngredient } from './ingredientService';
-import { normalize } from '../utils';
+import { cleProduit } from './prixService';
 
 const platsCollectionRef = collection(db, 'plats');
 
@@ -69,14 +69,24 @@ const deletePlat = async (id) => {
 
 /**
  * Ajoute un plat du catalogue aux plats de la famille. Les ingrédients sont rattachés au stock
- * de la famille (par nom) ; ceux qui manquent sont créés avec un stock à 0.
+ * de la famille (par nom, au singulier) ; ceux qui manquent sont créés avec un stock à 0.
+ *
+ * Les ajouts passent dans une FILE : si l'on ajoute plusieurs plats très vite, chacun voit les
+ * ingrédients créés par le précédent (sinon « Cube » était créé une fois par plat : doublons).
  */
-const addFromCatalogue = async (plat) => {
+let file = Promise.resolve();
+const addFromCatalogue = (plat) => {
+  const tache = file.then(() => ajouterDepuisCatalogue(plat));
+  file = tache.catch(() => {}); // une erreur n'empêche pas les ajouts suivants
+  return tache;
+};
+
+const ajouterDepuisCatalogue = async (plat) => {
   const familleIngredients = await getIngredients();
-  const byName = new Map(familleIngredients.map((i) => [normalize(i.nom || ''), i]));
+  const byName = new Map(familleIngredients.map((i) => [cleProduit(i.nom || ''), i]));
   const ingredientsNecessaires = [];
   for (const ing of plat.ingredientsNecessaires || []) {
-    const key = normalize(ing.nom || '');
+    const key = cleProduit(ing.nom || '');
     if (!key) continue;
     let local = byName.get(key);
     if (!local) {
