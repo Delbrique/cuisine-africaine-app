@@ -31,7 +31,8 @@ Cochez les cases au fur et à mesure (`[x]`).
 - [x] Base de prix partagée et anonyme : médiane, plus bas, plus haut, par marché, sur 90 jours glissants ; conversion d'unités (g/kg, ml/l).
 - [x] Prix de chaque article de la liste : prix de la famille, sinon prix relevés à Yaoundé (avec le nombre de relevés).
 - [x] Budget de la semaine : plafond, dépensé (privé à la famille), reste, alerte si la liste dépasse.
-- [ ] Coût de chaque plat et de chaque portion. **(S)**
+- [x] Coût de chaque plat (carte et fiche), par ingrédient et par personne à table ; unités avec nombre comprises (« 400g », « 1 kg »).
+- [ ] Catalogue : compléter les ingrédients des plats qui n'en ont pas (Ndolé, Poulet DG, Eru… : 19 plats sur 27) et harmoniser les quantités/unités. **(M)**
 - [ ] Historique et évolution des prix d'un produit (graphique), comparaison entre marchés. **(M)**
 
 ### Marché et supermarché le plus proche
