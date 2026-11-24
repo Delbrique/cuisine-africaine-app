@@ -11,6 +11,8 @@ import { enqueueSnackbar } from 'notistack';
 
 import { createPlat, getPlats, updatePlat, deletePlat } from '../../../services/platService';
 import { getIngredients } from '../../../services/ingredientService';
+import { getMembres } from '../../../services/membreService';
+import useCoutPlats from '../../../services/useCoutPlats';
 import {
   EmptyState, FilterChips, LoadingGrid, PageHeader, SelectCheck, SelectionBar, SelectToggleButton, selectableSx, useConfirm, useSelection,
 } from '../../../components/ui';
@@ -30,8 +32,14 @@ function PlatsPage() {
   const [params, setParams] = useSearchParams();
   const [busy, setBusy] = useState(false);
   const [catalogueOpen, setCatalogueOpen] = useState(false);
+  const [personnes, setPersonnes] = useState(0);
   const confirm = useConfirm();
   const selection = useSelection((plats || []).map((p) => p.id));
+  const { cout } = useCoutPlats(plats);
+
+  useEffect(() => {
+    getMembres().then((m) => setPersonnes(m.length)).catch(() => setPersonnes(0));
+  }, []);
 
   const fetchPlats = async () => {
     try {
@@ -172,7 +180,7 @@ function PlatsPage() {
             return (
               <Box key={p.id} sx={selectableSx(checked)}>
                 <SelectCheck checked={checked} selecting={selection.selecting} onToggle={() => selection.toggle(p.id)} sx={{ left: 'auto', right: 10 }} />
-                <PlatCard compact plat={p} onClick={() => (selection.selecting ? selection.toggle(p.id) : setViewing(p))} />
+                <PlatCard compact plat={p} cout={cout(p)} onClick={() => (selection.selecting ? selection.toggle(p.id) : setViewing(p))} />
               </Box>
             );
           })}
@@ -191,6 +199,8 @@ function PlatsPage() {
         onClose={() => setViewing(null)}
         onEdit={() => setEditor({ open: true, plat: viewing })}
         onDelete={() => remove(viewing)}
+        cout={cout(viewing)}
+        personnes={personnes}
       />
       <PlatEditor
         open={editor.open}

@@ -33,6 +33,13 @@ const SINGULIER = { tas: 'tas', bottes: 'botte', pieces: 'piece', pièces: 'piec
 export const uniteReference = (unite = '') => {
   const u = unite.trim().toLowerCase();
   if (CONVERSIONS[u]) return { unite: CONVERSIONS[u][0], facteur: CONVERSIONS[u][1] };
+  // Unité saisie avec un nombre : « 1 kg », « 400g », « 1,5 l », « 2 pièces ».
+  const m = u.match(/^(\d+(?:[.,]\d+)?)\s*([a-zà-ÿ]+)\.?$/);
+  if (m) {
+    const n = parseFloat(m[1].replace(',', '.'));
+    const inner = uniteReference(m[2]);
+    if (n > 0) return { unite: inner.unite, facteur: inner.facteur * n };
+  }
   const s = SINGULIER[u] || u.normalize('NFD').replace(/[̀-ͯ]/g, '') || 'unite';
   return { unite: s, facteur: 1 };
 };
@@ -136,6 +143,39 @@ export const prixCommunautaire = (stats, nom, unite) => {
   if (!s) return null;
   const f = ref.facteur; // prix par unité de l'article = prix par unité de référence × facteur
   return { prix: s.mediane * f, min: s.min * f, max: s.max * f, n: s.n, parLieu: s.parLieu.map((l) => ({ ...l, mediane: l.mediane * f })) };
+};
+
+// ---------- Coût d'un plat ----------
+/**
+ * Coût d'une quantité donnée d'un ingrédient, en FCFA, ou null si aucun prix n'est connu.
+ * Priorité : prix de la famille (catalogue d'ingrédients) puis prix relevés à Yaoundé.
+ */
+export const coutIngredient = (ing, { stock = [], stats } = {}) => {
+  const q = parseFloat(ing.quantite) || 0;
+  if (!q) return { cout: null, source: null };
+  const unite = ing.uniteMesure || '';
+  const fam = stock.find((s) => s.id === ing.ingredientId) || stock.find((s) => cleProduit(s.nom) === cleProduit(ing.nom));
+  const prixFam = parseFloat(fam?.prix);
+  if (prixFam > 0) {
+    const a = uniteReference(unite);
+    const b = uniteReference(fam.uniteMesure || '');
+    if (a.unite === b.unite) return { cout: q * (a.facteur / b.facteur) * prixFam, source: 'famille' };
+  }
+  const com = prixCommunautaire(stats, ing.nom, unite);
+  if (com) return { cout: q * com.prix, source: 'communaute', n: com.n };
+  return { cout: null, source: null };
+};
+
+/** Coût estimé d'un plat : { total, connus, nb, details: [{ nom, cout, source }] }. */
+export const coutPlat = (plat, ctx) => {
+  const details = (plat?.ingredientsNecessaires || []).map((ing) => ({ nom: ing.nom, ...coutIngredient(ing, ctx) }));
+  const connus = details.filter((d) => d.cout !== null);
+  return {
+    total: connus.reduce((s, d) => s + d.cout, 0),
+    connus: connus.length,
+    nb: details.length,
+    details,
+  };
 };
 
 // ---------- Budget de la famille ----------

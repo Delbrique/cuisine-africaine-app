@@ -9,7 +9,9 @@ import LocalFireDepartmentRoundedIcon from '@mui/icons-material/LocalFireDepartm
 import SignalCellularAltRoundedIcon from '@mui/icons-material/SignalCellularAltRounded';
 import { DishImage } from '../../../components/ui';
 import { CATEGORY_COLORS } from '../../../constants';
-import { formatNumber } from '../../../utils';
+import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded';
+import { formatFcfa, formatNumber } from '../../../utils';
+import { arrondi } from './PlatCard';
 
 function Meta({ icon, label, value }) {
   return (
@@ -22,7 +24,10 @@ function Meta({ icon, label, value }) {
 }
 
 /** Fiche recette en lecture. */
-export default function PlatDetail({ plat, onClose, onEdit, onDelete, extraActions }) {
+/**
+ * `cout` (facultatif) : résultat de coutPlat() ; `personnes` : nombre de membres à table.
+ */
+export default function PlatDetail({ plat, onClose, onEdit, onDelete, extraActions, cout, personnes }) {
   const theme = useTheme();
   const mobile = useMediaQuery(theme.breakpoints.down('sm'));
   const p = plat || {};
@@ -53,7 +58,19 @@ export default function PlatDetail({ plat, onClose, onEdit, onDelete, extraActio
                 <Meta icon={<TimerRoundedIcon />} label="Préparation" value={`${p.tempsPreparation || 0} min`} />
                 <Meta icon={<LocalFireDepartmentRoundedIcon />} label="Cuisson" value={`${p.tempsCuisson || 0} min`} />
                 <Meta icon={<SignalCellularAltRoundedIcon />} label="Difficulté" value={p.difficulte || '—'} />
+                {cout && cout.nb > 0 && (
+                  <Meta
+                    icon={<PaymentsRoundedIcon />}
+                    label={cout.connus === cout.nb ? 'Coût estimé' : `Coût estimé (${cout.connus}/${cout.nb} prix)`}
+                    value={cout.connus ? `≈ ${formatFcfa(arrondi(cout.total))}` : 'Prix ?'}
+                  />
+                )}
               </Box>
+            )}
+            {cout && cout.connus > 0 && personnes > 1 && (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: -1.5, mb: 3, textAlign: 'right' }}>
+                Soit environ <b>{formatFcfa(arrondi(cout.total / personnes))}</b> par personne pour {personnes} personnes à table.
+              </Typography>
             )}
 
             {p.description && <Typography sx={{ mb: 3, fontSize: 16.5, lineHeight: 1.7 }}>{p.description}</Typography>}
@@ -77,12 +94,22 @@ export default function PlatDetail({ plat, onClose, onEdit, onDelete, extraActio
                     <Typography color="text.secondary">Aucun ingrédient renseigné.</Typography>
                   ) : (
                     <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
-                      {p.ingredientsNecessaires.map((ing, i) => (
-                        <Box component="li" key={ing.ingredientId || i} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, py: 1, borderBottom: '1px dashed', borderColor: 'divider' }}>
-                          <Typography sx={{ fontWeight: 600 }}>{ing.nom}</Typography>
-                          <Typography color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>{formatNumber(ing.quantite)} {ing.uniteMesure}</Typography>
-                        </Box>
-                      ))}
+                      {p.ingredientsNecessaires.map((ing, i) => {
+                        const c = cout?.details?.[i];
+                        return (
+                          <Box component="li" key={ing.ingredientId || i} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, py: 1, borderBottom: '1px dashed', borderColor: 'divider' }}>
+                            <Typography sx={{ fontWeight: 600 }}>{ing.nom}</Typography>
+                            <Box sx={{ textAlign: 'right' }}>
+                              <Typography color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>{formatNumber(ing.quantite)} {ing.uniteMesure}</Typography>
+                              {cout && (
+                                <Typography variant="caption" sx={{ whiteSpace: 'nowrap', fontWeight: 650, color: c?.cout != null ? (c.source === 'communaute' ? 'secondary.main' : 'text.secondary') : 'warning.main' }}>
+                                  {c?.cout != null ? `≈ ${formatFcfa(c.cout)}${c.source === 'communaute' ? ' · prix Yaoundé' : ''}` : 'prix inconnu'}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+                        );
+                      })}
                     </Box>
                   )}
                 </Box>

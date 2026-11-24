@@ -5,9 +5,14 @@ import EggAltRoundedIcon from '@mui/icons-material/EggAltRounded';
 import SpaRoundedIcon from '@mui/icons-material/SpaRounded';
 import { DishImage } from '../../../components/ui';
 import { CATEGORY_COLORS } from '../../../constants';
+import { formatFcfa } from '../../../utils';
+
+/** Arrondi « marché » : à 50 FCFA près. */
+export const arrondi = (n) => Math.round(n / 50) * 50;
 
 /** Carte « magazine » d'un plat. */
-export default function PlatCard({ plat, onClick, badge, footer, compact = false }) {
+/** `cout` (facultatif) : résultat de coutPlat() → affiche le coût estimé. */
+export default function PlatCard({ plat, onClick, badge, footer, compact = false, cout }) {
   // `compact` : version réduite sur téléphone (grille de 2 colonnes).
   const small = (xs, sm) => (compact ? { xs, sm } : sm);
   const isFruit = plat.categoriePlat === 'Fruit';
@@ -46,7 +51,13 @@ export default function PlatCard({ plat, onClick, badge, footer, compact = false
                   <EggAltRoundedIcon color="primary" />
                   <Typography variant="caption" sx={{ fontWeight: 650 }}>{nbIng} ingrédient{nbIng > 1 ? 's' : ''}</Typography>
                 </Box>
-                {plat.difficulte && <Typography variant="caption" sx={{ fontWeight: 650, ml: 'auto' }}>{plat.difficulte}</Typography>}
+                {cout?.connus > 0 ? (
+                  <Typography variant="caption" sx={{ fontWeight: 750, ml: 'auto', color: 'secondary.main', whiteSpace: 'nowrap' }}>
+                    ≈ {formatFcfa(arrondi(cout.total))}
+                  </Typography>
+                ) : (
+                  plat.difficulte && <Typography variant="caption" sx={{ fontWeight: 650, ml: 'auto' }}>{plat.difficulte}</Typography>
+                )}
               </>
             )}
           </Box>
