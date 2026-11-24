@@ -34,7 +34,8 @@ Cochez les cases au fur et à mesure (`[x]`).
 - [x] Coût de chaque plat (carte et fiche), par ingrédient et par personne à table ; unités avec nombre comprises (« 400g », « 1 kg »).
 - [x] Catalogue : ingrédients des 27 plats complétés et harmonisés pour 4 personnes (24/11/2026) ; 38 nouveaux ingrédients ajoutés au stock à 0.
 - [ ] Stock de la famille BIYONG : harmoniser les unités ambiguës des anciens ingrédients (« 1 à 2 pièces », « 2 à 4 gousses »…) pour que leurs prix servent au coût des plats. **(S)**
-- [ ] Historique et évolution des prix d'un produit (graphique), comparaison entre marchés. **(M)**
+- [x] Fiche prix d'un produit (toucher le prix dans la liste de marché) : prix actuel, tendance sur 1 mois / 3 mois / 1 an, petite courbe, « où l'acheter moins cher », relevés détaillés.
+- [ ] Page « Prix à Yaoundé » pour chercher n'importe quel produit (quand la base de relevés sera fournie). **(S)**
 
 ### Marché et supermarché le plus proche
 - [x] Demander la position de l'utilisateur (avec son accord), ou la placer à la main sur la carte.
