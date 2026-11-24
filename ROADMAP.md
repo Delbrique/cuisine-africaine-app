@@ -54,9 +54,11 @@ Cochez les cases au fur et à mesure (`[x]`).
 
 ## Phase 2 — L'intelligence au service de la famille
 
-- [ ] Menu de la semaine généré en un clic : allergies, maladies, goûts, budget, stock en priorité. **(L)**
-- [ ] Anti-gaspillage : plats proposés pour les produits qui se périment bientôt. **(M)**
-- [ ] Santé à table : alertes et adaptations (hypertension, diabète…) — conseils, pas un avis médical. **(M)**
+- [x] Menu de la semaine en un clic (bouton « Générer » du planning) : allergies exclues, santé, plats préférés, budget, variété (`services/menuIntelligent.js`, 8 tests : `npm test -- menuIntelligent`).
+- [x] Anti-gaspillage : les plats qui utilisent un produit qui se périme dans les 5 jours passent en début de semaine.
+- [x] Santé à table : moins de plats très salés (hypertension) / sucrés (diabète) et conseils d'adaptation par membre — conseils généraux, pas un avis médical.
+- [ ] Anti-gaspillage aussi sur l'accueil : « Ces produits se périment : voici 3 plats ». **(S)**
+- [ ] Santé sur la fiche d'un plat : conseils d'adaptation selon les membres. **(S)**
 - [ ] Photo du frigo ou d'un ticket de caisse → mise à jour du stock par l'IA. **(L)**
 
 ## Phase 3 — La vie de famille
