@@ -145,6 +145,50 @@ export const prixCommunautaire = (stats, nom, unite) => {
   return { prix: s.mediane * f, min: s.min * f, max: s.max * f, n: s.n, parLieu: s.parLieu.map((l) => ({ ...l, mediane: l.mediane * f })) };
 };
 
+// ---------- Historique d'un produit ----------
+const semaineDe = (ms) => cleSemaine(new Date(ms));
+
+/**
+ * Historique d'un produit sur `jours` jours, dans l'unité la plus relevée (ou `unite`).
+ * Renvoie { unite, unites, releves, semaines: [{ semaine, mediane, n }], mediane, min, max,
+ *           evolution (part de variation entre la 1re et la dernière semaine, ou null),
+ *           parLieu: [{ lieuNom, mediane, n }] trié du moins cher au plus cher }.
+ */
+export const historiqueProduit = async (nom, { jours = 90, unite } = {}) => {
+  const snap = await getDocs(query(collection(db, 'prix'), where('cle', '==', cleProduit(nom))));
+  const depuis = Date.now() - jours * 24 * 3600 * 1000;
+  const tous = snap.docs
+    .map((d) => ({ ...d.data(), id: d.id, t: d.data().date?.toMillis?.() || Date.now() }))
+    .filter((r) => r.prixUnitaire > 0 && r.t >= depuis);
+  const compte = {};
+  tous.forEach((r) => { compte[r.unite] = (compte[r.unite] || 0) + 1; });
+  const unites = Object.keys(compte).sort((a, b) => compte[b] - compte[a]);
+  const u = unite && compte[unite] ? unite : unites[0];
+  const releves = tous.filter((r) => r.unite === u).sort((a, b) => a.t - b.t);
+  if (!releves.length) return { unite: u || null, unites, releves: [], semaines: [], parLieu: [] };
+
+  const parSemaine = {};
+  releves.forEach((r) => { (parSemaine[semaineDe(r.t)] = parSemaine[semaineDe(r.t)] || []).push(r.prixUnitaire); });
+  const semaines = Object.entries(parSemaine).sort(([a], [b]) => a.localeCompare(b))
+    .map(([semaine, xs]) => ({ semaine, mediane: mediane(xs), n: xs.length }));
+  const lieux = {};
+  releves.forEach((r) => { if (r.lieuNom) (lieux[r.lieuNom] = lieux[r.lieuNom] || []).push(r.prixUnitaire); });
+  const xs = releves.map((r) => r.prixUnitaire);
+  const premier = semaines[0].mediane;
+  const dernier = semaines[semaines.length - 1].mediane;
+  return {
+    unite: u,
+    unites,
+    releves,
+    semaines,
+    mediane: mediane(xs),
+    min: Math.min(...xs),
+    max: Math.max(...xs),
+    evolution: semaines.length > 1 && premier > 0 ? (dernier - premier) / premier : null,
+    parLieu: Object.entries(lieux).map(([lieuNom, v]) => ({ lieuNom, mediane: mediane(v), n: v.length })).sort((a, b) => a.mediane - b.mediane),
+  };
+};
+
 // ---------- Coût d'un plat ----------
 /**
  * Coût d'une quantité donnée d'un ingrédient, en FCFA, ou null si aucun prix n'est connu.

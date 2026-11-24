@@ -32,6 +32,7 @@ import {
   annulerAchat, depensesSemaine, getBudget, ilYa, prixCommunautaire, setBudget, statsPrix,
 } from '../../services/prixService';
 import NoterPrixDialog from './NoterPrixDialog';
+import PrixProduitDialog from './PrixProduitDialog';
 
 const blobToBase64 = (blob) =>
   new Promise((resolve, reject) => {
@@ -68,7 +69,7 @@ const SOURCE_LABEL = {
   memorise: 'prix mémorisé',
 };
 
-function Item({ item, cost, onToggle, onRemove, onNoterPrix }) {
+function Item({ item, cost, onToggle, onRemove, onNoterPrix, onVoirPrix }) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, pl: 0.5, pr: 1, borderRadius: 3, transition: 'background .15s', '&:hover': { bgcolor: 'sand.main' }, '&:hover .rm': { opacity: 1 } }}>
       <Checkbox
@@ -87,7 +88,11 @@ function Item({ item, cost, onToggle, onRemove, onNoterPrix }) {
           </Typography>
         </Box>
       </ButtonBase>
-      <Box sx={{ textAlign: 'right' }}>
+      <ButtonBase
+        onClick={onVoirPrix}
+        aria-label={`Évolution du prix : ${item.nom}`}
+        sx={{ display: 'block', textAlign: 'right', borderRadius: 2, px: 0.75, py: 0.25, '&:hover': { bgcolor: 'action.hover' } }}
+      >
         <Typography sx={{ fontWeight: 700, whiteSpace: 'nowrap', color: item.checked ? 'text.secondary' : 'text.primary' }}>
           {cost.unit === null ? 'Prix ?' : formatFcfa(cost.total)}
         </Typography>
@@ -101,7 +106,7 @@ function Item({ item, cost, onToggle, onRemove, onNoterPrix }) {
             {cost.source === 'communaute' ? SOURCE_LABEL.communaute(cost.n) : SOURCE_LABEL[cost.source]}
           </Typography>
         )}
-      </Box>
+      </ButtonBase>
       <Tooltip title="J'ai payé… (noter le prix réel)">
         <IconButton size="small" onClick={onNoterPrix} aria-label="Noter le prix payé" sx={{ color: 'secondary.main' }}>
           <ReceiptLongRoundedIcon fontSize="small" />
@@ -123,6 +128,7 @@ function ListeMarchePage() {
   const [menu, setMenu] = useState(null);
   const [stats, setStats] = useState(null); // prix de la communauté
   const [noter, setNoter] = useState({ open: false, item: null });
+  const [voirPrix, setVoirPrix] = useState(null); // nom du produit dont on regarde l'historique
   const [budget, setBudgetState] = useState(0);
   const [depenses, setDepenses] = useState([]);
   const [editBudget, setEditBudget] = useState(null); // valeur en cours de saisie
@@ -557,13 +563,13 @@ function ListeMarchePage() {
                   <CheckCircleRoundedIcon /><Typography sx={{ fontWeight: 700 }}>Tout est dans le panier, bon retour du marché !</Typography>
                 </Box>
               ) : (
-                remaining.map((i) => <Item key={i.ingredientId} item={i} cost={cost(i)} onToggle={() => toggle(i.ingredientId)} onRemove={() => remove(i.ingredientId)} onNoterPrix={() => ouvrirNoter(i)} />)
+                remaining.map((i) => <Item key={i.ingredientId} item={i} cost={cost(i)} onToggle={() => toggle(i.ingredientId)} onRemove={() => remove(i.ingredientId)} onNoterPrix={() => ouvrirNoter(i)} onVoirPrix={() => setVoirPrix(i.nom)} />)
               )}
             </Card>
             {done.length > 0 && (
               <Card sx={{ p: 1.5, opacity: 0.85 }}>
                 <Typography variant="overline" color="text.secondary" sx={{ px: 1.5 }}>Dans le panier · {done.length}</Typography>
-                {done.map((i) => <Item key={i.ingredientId} item={i} cost={cost(i)} onToggle={() => toggle(i.ingredientId)} onRemove={() => remove(i.ingredientId)} onNoterPrix={() => ouvrirNoter(i)} />)}
+                {done.map((i) => <Item key={i.ingredientId} item={i} cost={cost(i)} onToggle={() => toggle(i.ingredientId)} onRemove={() => remove(i.ingredientId)} onNoterPrix={() => ouvrirNoter(i)} onVoirPrix={() => setVoirPrix(i.nom)} />)}
               </Card>
             )}
           </Box>
@@ -598,6 +604,7 @@ function ListeMarchePage() {
         onClose={() => setNoter({ open: false, item: null })}
         onSaved={apresAchat}
       />
+      <PrixProduitDialog open={Boolean(voirPrix)} nom={voirPrix} onClose={() => setVoirPrix(null)} />
     </Box>
   );
 }

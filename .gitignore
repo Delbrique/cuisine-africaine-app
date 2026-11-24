@@ -10,6 +10,8 @@
 
 # production
 /build
+# version de test locale (émulateurs) : jamais déployée
+/build-emu
 
 # misc
 .DS_Store

@@ -1,8 +1,8 @@
 // src/firebase/firebase.js
 import { initializeApp } from 'firebase/app';
 import { initializeAppCheck, ReCaptchaEnterpriseProvider } from 'firebase/app-check';
-import { getFirestore } from 'firebase/firestore';
-import { getAuth } from 'firebase/auth';
+import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getAuth, connectAuthEmulator } from 'firebase/auth';
 import { getFunctions } from 'firebase/functions'; // Importe le module Functions
 import { getStorage } from 'firebase/storage';
 
@@ -46,6 +46,13 @@ const auth = getAuth(firebaseApp);
 const functions = getFunctions(firebaseApp);
 
 const storage = getStorage(firebaseApp);
+
+// Tests locaux uniquement : `REACT_APP_EMULATEURS=1 npm run build` (ou npm start) fait parler l'app
+// aux émulateurs Firebase de la machine au lieu de la vraie base. Jamais activé sur le site en ligne.
+if (process.env.REACT_APP_EMULATEURS === '1') {
+  connectFirestoreEmulator(db, '127.0.0.1', 8085);
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+}
 
 // Exportez tous les services et l'instance de l'application que vous utiliserez
 // 'storage' n'est plus exporté ni initialisé
