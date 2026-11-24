@@ -2,12 +2,14 @@
 // (anonyme) et les dépenses de la famille (privé).
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  Autocomplete, Box, Button, Checkbox, CircularProgress, FormControlLabel, InputAdornment, TextField, Typography,
+  Alert, Autocomplete, Box, Button, Checkbox, CircularProgress, FormControlLabel, InputAdornment, TextField, Typography,
 } from '@mui/material';
 import { enqueueSnackbar } from 'notistack';
 import { ResponsiveDialog } from '../../components/ui';
 import { LIEUX, TYPES } from '../../services/lieuxService';
-import { UNITES_COURANTES, noterAchat, uniteReference } from '../../services/prixService';
+import {
+  UNITES_COURANTES, controlePrix, noterAchat, statsPrix, uniteReference, uniteSaisie,
+} from '../../services/prixService';
 import { updateIngredient } from '../../services/ingredientService';
 import { formatFcfa, friendlyError } from '../../utils';
 
@@ -22,20 +24,28 @@ export default function NoterPrixDialog({ open, onClose, item, ingredient, onSav
   const [lieu, setLieu] = useState(null);
   const [pourFamille, setPourFamille] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [stats, setStats] = useState(null);
+  const [confirme, setConfirme] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setNom(item?.nom || '');
     setMontant('');
-    setQuantite(item?.quantite ? String(item.quantite) : '1');
-    setUnite(item?.uniteMesure || 'kg');
+    // Quantité à 1 par défaut : la quantité de la liste (cumul de la semaine) faussait le prix unitaire.
+    setQuantite('1');
+    setUnite(uniteSaisie(item?.uniteMesure || 'kg'));
     setPourFamille(true);
     setBusy(false);
+    setConfirme(false);
+    setStats(null);
+    if (item?.nom) statsPrix([item.nom]).then(setStats).catch(() => setStats(new Map()));
     try {
       const id = localStorage.getItem(LIEU_KEY);
       setLieu(LIEUX.find((l) => l.id === id) || null);
     } catch { setLieu(null); }
   }, [open, item]);
+
+  useEffect(() => { setConfirme(false); }, [montant, quantite, unite]);
 
   const unitaire = useMemo(() => {
     const m = Number(montant); const q = Number(quantite);
@@ -43,16 +53,30 @@ export default function NoterPrixDialog({ open, onClose, item, ingredient, onSav
   }, [montant, quantite]);
 
   // Le prix peut-il être reporté sur l'ingrédient de la famille (unités compatibles) ?
-  const compatible = ingredient && uniteReference(unite).unite === uniteReference(ingredient.uniteMesure || '').unite;
+  const refSaisie = uniteReference(uniteSaisie(unite));
+  const compatible = ingredient && refSaisie.unite === uniteReference(ingredient.uniteMesure || '').unite;
+
+  // Contrôle : prix au kg / à la pièce comparé au prix habituel (relevés de Yaoundé, sinon prix de la famille).
+  const prixRef = unitaire ? unitaire / refSaisie.facteur : null;
+  const reference = (() => {
+    for (const parUnite of stats?.values?.() || []) {
+      const s = parUnite.get(refSaisie.unite);
+      if (s && s.n >= 2) return s.mediane;
+    }
+    const pf = parseFloat(ingredient?.prix);
+    if (pf > 0 && compatible) return pf / uniteReference(ingredient.uniteMesure || '').facteur;
+    return null;
+  })();
+  const controle = controlePrix(prixRef, reference);
 
   const save = async () => {
+    if (controle?.inhabituel && !confirme) { setConfirme(true); return; }
     setBusy(true);
     try {
       await noterAchat({ nom, montant, quantite, unite, lieu });
       if (lieu) try { localStorage.setItem(LIEU_KEY, lieu.id); } catch { /* stockage indisponible */ }
       if (pourFamille && compatible && unitaire) {
         // Prix ramené à l'unité de l'ingrédient (ex. payé au kg, ingrédient en g).
-        const prixRef = Number(montant) / (Number(quantite) * uniteReference(unite).facteur);
         const prixIngredient = Math.round(prixRef * uniteReference(ingredient.uniteMesure).facteur * 100) / 100;
         await updateIngredient(ingredient.id, { prix: prixIngredient });
       }
@@ -74,8 +98,11 @@ export default function NoterPrixDialog({ open, onClose, item, ingredient, onSav
       actions={
         <>
           <Button color="inherit" onClick={onClose} disabled={busy}>Annuler</Button>
-          <Button type="submit" variant="contained" disabled={busy || !nom || !unitaire} startIcon={busy ? <CircularProgress size={16} color="inherit" /> : null}>
-            Enregistrer
+          <Button
+            type="submit" variant="contained" color={confirme ? 'warning' : 'primary'}
+            disabled={busy || !nom || !unitaire} startIcon={busy ? <CircularProgress size={16} color="inherit" /> : null}
+          >
+            {confirme ? 'Enregistrer quand même' : 'Enregistrer'}
           </Button>
         </>
       }
@@ -102,8 +129,16 @@ export default function NoterPrixDialog({ open, onClose, item, ingredient, onSav
         />
         {unitaire && (
           <Typography variant="body2" color="text.secondary">
-            Soit <b>{formatFcfa(unitaire)}</b> par {unite || 'unité'}.
+            Soit <b>{formatFcfa(unitaire)}</b> par {unite || 'unité'}
+            {refSaisie.facteur !== 1 && prixRef ? <> (<b>{formatFcfa(prixRef)}</b> par {refSaisie.unite})</> : null}.
           </Typography>
+        )}
+        {controle?.inhabituel && (
+          <Alert severity="warning">
+            <b>Prix inhabituel :</b> {formatFcfa(prixRef)} par {refSaisie.unite}, alors qu'il est d'habitude
+            d'environ {formatFcfa(controle.reference)}. Vérifiez le <b>prix payé</b> et la <b>quantité</b>
+            {confirme ? ', puis touchez « Enregistrer quand même » si c\'est bien correct.' : '.'}
+          </Alert>
         )}
         {compatible && (
           <FormControlLabel
