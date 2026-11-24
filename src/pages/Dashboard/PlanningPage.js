@@ -21,13 +21,17 @@ import { enqueueSnackbar } from 'notistack';
 
 import { getPlats } from '../../services/platService';
 import { createPlanning, getMostRecentPlanning, updatePlanning } from '../../services/planningService';
-import { updateIngredientStock, getIngredientById } from '../../services/ingredientService';
+import { updateIngredientStock, getIngredientById, getIngredients } from '../../services/ingredientService';
 import { addToShoppingList as addItemsToShoppingList } from '../../services/shoppingList';
 import { auth } from '../../firebase/firebase';
 import { DishImage, PageHeader, ResponsiveDialog } from '../../components/ui';
 import SplashScreen from '../../components/SplashScreen';
 import { JOURS, REPAS } from '../../constants';
-import { friendlyError, normalize, todayKey } from '../../utils';
+import { formatFcfa, friendlyError, normalize, todayKey } from '../../utils';
+import { getMembres } from '../../services/membreService';
+import { coutPlat, getBudget, statsPrix } from '../../services/prixService';
+import { composerSemaine } from '../../services/menuIntelligent';
+import { arrondi } from './PlatsEtIngredients/PlatCard';
 import { tint } from '../../theme/theme';
 
 const typesRepas = REPAS.map((r) => r.key);
@@ -45,18 +49,37 @@ const getSundayOfWeek = (date) => {
 };
 const fmt = (iso) => (iso ? new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) : '');
 
-// Répartition des catégories utilisée par la génération automatique (inchangée).
-const categoryDistribution = {
-  lundi: { petitDejeuner: ['Petit-déjeuner', 'Fruit'], dejeuner: ['Viande', 'Légumes'], diner: ['Poisson', 'Crudité'] },
-  mardi: { petitDejeuner: ['Petit-déjeuner', 'Fruit'], dejeuner: ['Volaille', 'Légumes'], diner: ['Végétarien', 'Fruit'] },
-  mercredi: { petitDejeuner: ['Petit-déjeuner', 'Fruit'], dejeuner: ['Poisson', 'Crudité'], diner: ['Viande', 'Légumes'] },
-  jeudi: { petitDejeuner: ['Petit-déjeuner', 'Fruit'], dejeuner: ['Végétarien', 'Légumes'], diner: ['Volaille', 'Fruit'] },
-  vendredi: { petitDejeuner: ['Petit-déjeuner', 'Fruit'], dejeuner: ['Viande', 'Crudité'], diner: ['Poisson', 'Légumes'] },
-  samedi: { petitDejeuner: ['Petit-déjeuner', 'Fruit'], dejeuner: ['Végétarien', 'Fruit'], diner: ['Viande', 'Volaille', 'Légumes', 'Crudité'] },
-  dimanche: { petitDejeuner: ['Petit-déjeuner', 'Fruit'], dejeuner: ['Poisson', 'Volaille', 'Légumes', 'Crudité'], diner: ['Végétarien', 'Viande', 'Fruit'] },
-};
-
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
+
+/** Résumé discret de la semaine générée : budget, anti-gaspillage, allergies, conseils santé. */
+function ResumeSemaine({ r, onClose }) {
+  const lignes = [];
+  if (r.total <= 0) {
+    lignes.push({ texte: 'Coût de la semaine pas encore estimable : renseignez des prix (« J\'ai payé… » au marché).' });
+  } else if (r.budget > 0) {
+    lignes.push(r.depassement > 0
+      ? { ton: 'warning.main', texte: `Coût estimé ${formatFcfa(arrondi(r.total))} : ${formatFcfa(arrondi(r.depassement))} au-dessus du budget (${formatFcfa(r.budget)}).` }
+      : { ton: 'success.main', texte: `Coût estimé ${formatFcfa(arrondi(r.total))}, dans le budget de ${formatFcfa(r.budget)}${r.inconnus ? ` (${r.inconnus} repas sans prix)` : ''}.` });
+  } else {
+    lignes.push({ texte: `Coût estimé : ${formatFcfa(arrondi(r.total))}${r.inconnus ? ` (${r.inconnus} repas sans prix)` : ''}.` });
+  }
+  if (r.antiGaspi.length) lignes.push({ ton: 'success.main', texte: `Anti-gaspillage : ${r.antiGaspi.map((a) => a.nom).join(', ')} cuisiné${r.antiGaspi.length > 1 ? 's' : ''} avant péremption.` });
+  if (r.exclus.length) lignes.push({ texte: `${r.exclus.length} plat${r.exclus.length > 1 ? 's' : ''} écarté${r.exclus.length > 1 ? 's' : ''} pour allergie : ${r.exclus.map((e) => `${e.plat} – ${e.raison}`).join(' · ')}.` });
+  r.conseils.forEach((c) => lignes.push({ texte: c }));
+  if (!lignes.length) return null;
+  return (
+    <Card sx={{ p: 2, mb: 2.5, position: 'relative' }}>
+      <IconButton size="small" onClick={onClose} aria-label="Fermer le résumé" sx={{ position: 'absolute', top: 8, right: 8 }}><CloseRoundedIcon fontSize="small" /></IconButton>
+      <Typography variant="overline" color="text.secondary">Votre semaine</Typography>
+      <Box component="ul" sx={{ m: 0, pl: 2.5, pr: 4, '& li': { mb: 0.5 } }}>
+        {lignes.map((l) => <Typography component="li" key={l.texte} variant="body2" sx={{ color: l.ton || 'text.primary' }}>{l.texte}</Typography>)}
+      </Box>
+      {r.conseils.length > 0 && (
+        <Typography variant="caption" color="text.secondary">Conseils généraux, qui ne remplacent pas l'avis d'un médecin.</Typography>
+      )}
+    </Card>
+  );
+}
 
 /** Case d'un repas dans le tableau de la semaine. */
 function MealSlot({ meal, slot, plat, onPick, onClear, onCart, big }) {
@@ -155,6 +178,7 @@ function PlanningPage() {
   const [currentPlanning, setCurrentPlanning] = useState(null);
   const [picker, setPicker] = useState(null);
   const [genMenu, setGenMenu] = useState(null);
+  const [resume, setResume] = useState(null); // résumé de la dernière génération
   const [day, setDay] = useState(JOURS.includes(todayKey()) ? todayKey() : 'lundi');
 
   const fetchData = async () => {
@@ -218,28 +242,35 @@ function PlanningPage() {
     setSlot(d, m, { platId: plat.id, nomPlat: plat.nom, photoURL: plat.photoURL || '' });
   };
 
-  const generateRandomPlanning = () => {
+  /**
+   * Génère la semaine selon la famille : allergies (exclues), santé, plats préférés,
+   * produits qui se périment (anti-gaspillage), budget et variété. Voir services/menuIntelligent.
+   */
+  const generateRandomPlanning = async () => {
     setGenMenu(null);
-    const byCat = (c) => allPlats.filter((p) => (c === 'Autre' ? p.categoriePlat === 'Autre' || !p.categoriePlat : p.categoriePlat === c));
-    const used = new Set();
-    const week = emptyWeek();
-    JOURS.forEach((d) => typesRepas.forEach((m) => {
-      let chosen = null;
-      for (const c of categoryDistribution[d][m]) {
-        const eligible = byCat(c).filter((p) => !used.has(p.id));
-        if (eligible.length) { chosen = pick(eligible); break; }
+    setBusy('gen');
+    try {
+      const [membres, stock, budget] = await Promise.all([getMembres(), getIngredients(), getBudget().catch(() => 0)]);
+      const noms = [...new Set(allPlats.flatMap((p) => (p.ingredientsNecessaires || []).map((i) => i.nom)).filter(Boolean))];
+      const stats = noms.length ? await statsPrix(noms).catch(() => new Map()) : new Map();
+      const r = composerSemaine({ plats: allPlats, membres, stock, budget, cout: (p) => coutPlat(p, { stock, stats }) });
+      if (r.vide) {
+        enqueueSnackbar('Aucun plat compatible avec les allergies de la famille. Ajoutez des plats depuis le catalogue.', { variant: 'warning' });
+        return;
       }
-      if (!chosen) {
-        const fallback = byCat('Autre').filter((p) => !used.has(p.id));
-        if (fallback.length) chosen = pick(fallback);
-      }
-      if (chosen) {
-        week[d][m] = { platId: chosen.id, nomPlat: chosen.nom, photoURL: chosen.photoURL || '' };
-        used.add(chosen.id);
-      }
-    }));
-    setCurrentPlanning((prev) => ({ ...prev, planning: week }));
-    enqueueSnackbar('Semaine générée sans doublon ! Ajustez-la puis enregistrez.', { variant: 'success' });
+      const week = emptyWeek();
+      JOURS.forEach((d) => typesRepas.forEach((m) => {
+        const plat = allPlats.find((p) => p.id === r.semaine[d][m]);
+        if (plat) week[d][m] = { platId: plat.id, nomPlat: plat.nom, photoURL: plat.photoURL || '' };
+      }));
+      setCurrentPlanning((prev) => ({ ...prev, planning: week }));
+      setResume(r);
+      enqueueSnackbar('Semaine composée pour votre famille. Ajustez-la si besoin, puis enregistrez.', { variant: 'success' });
+    } catch (err) {
+      enqueueSnackbar(`Génération impossible : ${friendlyError(err)}`, { variant: 'error' });
+    } finally {
+      setBusy('');
+    }
   };
 
   const generateBreakfastOnly = () => {
@@ -367,7 +398,10 @@ function PlanningPage() {
         actions={
           <>
             <Tooltip title="Recharger"><IconButton onClick={fetchData} sx={{ border: '1.5px solid', borderColor: 'divider' }}><RefreshRoundedIcon /></IconButton></Tooltip>
-            <Button variant="outlined" startIcon={<AutoAwesomeRoundedIcon />} endIcon={<KeyboardArrowDownRoundedIcon />} onClick={(e) => setGenMenu(e.currentTarget)} disabled={allPlats.length === 0}>
+            <Button
+              variant="outlined" endIcon={<KeyboardArrowDownRoundedIcon />} onClick={(e) => setGenMenu(e.currentTarget)}
+              startIcon={busy === 'gen' ? <CircularProgress size={16} /> : <AutoAwesomeRoundedIcon />} disabled={allPlats.length === 0 || Boolean(busy)}
+            >
               Générer
             </Button>
             <Button variant="outlined" startIcon={busy === 'pdf' ? <CircularProgress size={16} /> : <PictureAsPdfRoundedIcon />} onClick={generatePdf} disabled={Boolean(busy)}>PDF</Button>
@@ -380,13 +414,15 @@ function PlanningPage() {
       <Menu anchorEl={genMenu} open={Boolean(genMenu)} onClose={() => setGenMenu(null)}>
         <MenuItem onClick={generateRandomPlanning}>
           <ListItemIcon><ShuffleRoundedIcon /></ListItemIcon>
-          <ListItemText primary="Toute la semaine" secondary="Équilibrée par catégories, sans doublon" />
+          <ListItemText primary="Toute la semaine" secondary="Selon la famille : allergies, santé, goûts, budget, stock" />
         </MenuItem>
         <MenuItem onClick={generateBreakfastOnly} disabled={!allPlats.some((p) => p.categoriePlat === 'Fruit')}>
           <ListItemIcon><BreakfastDiningRoundedIcon /></ListItemIcon>
           <ListItemText primary="Petits-déjeuners fruités" secondary="Uniquement les matins" />
         </MenuItem>
       </Menu>
+
+      {resume && <ResumeSemaine r={resume} onClose={() => setResume(null)} />}
 
       {desktop ? (
         <Box sx={{ overflowX: 'auto', mx: -1, px: 1, pb: 1 }}>
