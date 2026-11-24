@@ -11,6 +11,8 @@ import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import RecyclingRoundedIcon from '@mui/icons-material/RecyclingRounded';
+import { platsAntiGaspi } from '../../services/menuIntelligent';
 
 import { getMembres } from '../../services/membreService';
 import { getPlats } from '../../services/platService';
@@ -66,6 +68,11 @@ function AccueilPage() {
   }, [mealsReady, parts.planning, parts.plats, today]);
 
   const alerts = useMemo(() => (ingredients ? ingredients.filter(needsAttention) : []), [ingredients]);
+  const gaspi = useMemo(
+    () => (ingredients && parts.plats ? platsAntiGaspi({ plats: parts.plats, stock: ingredients, membres: membres || [] }) : null),
+    [ingredients, parts.plats, membres]
+  );
+  const quand = (j) => (j === 0 ? "aujourd'hui" : j === 1 ? 'demain' : `dans ${j} j`);
   const inStock = ingredients ? ingredients.filter((i) => (parseFloat(i.stockQuantity) || 0) > 0).length : 0;
   const count = (list) => (list ? list.length : '–');
 
@@ -174,6 +181,50 @@ function AccueilPage() {
           </SectionCard>
         </Box>
 
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {/* Anti-gaspillage : visible seulement quand des produits se périment bientôt */}
+        {gaspi?.produits.length > 0 && (
+          <SectionCard
+            icon={<RecyclingRoundedIcon />} title="Anti-gaspillage"
+            subtitle={gaspi.produits.length === 1 ? 'Ce produit se périme bientôt' : `Ces ${gaspi.produits.length} produits se périment bientôt`}
+            action={<Button component={RouterLink} to={`${base}/planning-repas`} size="small" endIcon={<ArrowForwardRoundedIcon />}>Planning</Button>}
+          >
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+              {gaspi.produits.slice(0, 6).map((p) => (
+                <Chip key={p.id} size="small" variant="outlined" color={p.jours <= 1 ? 'error' : 'warning'} label={`${p.nom} · ${quand(p.jours)}`} />
+              ))}
+              {gaspi.produits.length > 6 && <Chip size="small" label={`+${gaspi.produits.length - 6}`} />}
+            </Box>
+            {gaspi.plats.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                Aucun de vos plats ne les utilise. Demandez une idée au Chef IA.
+              </Typography>
+            ) : (
+              <>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {gaspi.plats.length === 1 ? 'Un plat pour les cuisiner :' : `${gaspi.plats.length} plats pour les cuisiner :`}
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {gaspi.plats.map(({ plat, utilise }) => (
+                    <ButtonBase
+                      key={plat.id}
+                      onClick={() => navigate(`${base}/plats?plat=${encodeURIComponent(plat.id)}`)}
+                      sx={{ display: 'flex', justifyContent: 'flex-start', gap: 1.5, p: 1, borderRadius: 3, textAlign: 'left', '&:hover': { bgcolor: 'sand.main' } }}
+                    >
+                      <DishImage src={plat.photoURL} name={plat.nom} height={48} sx={{ width: 48, borderRadius: '12px', flexShrink: 0 }} />
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography sx={{ fontWeight: 650 }} noWrap>{plat.nom}</Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap component="div">Utilise : {utilise.join(', ')}</Typography>
+                      </Box>
+                      <ArrowForwardRoundedIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                    </ButtonBase>
+                  ))}
+                </Box>
+              </>
+            )}
+          </SectionCard>
+        )}
+
         {/* Alertes stock */}
         <SectionCard
           icon={<NotificationImportantRoundedIcon />} title="À surveiller"
@@ -213,6 +264,7 @@ function AccueilPage() {
             </Box>
           )}
         </SectionCard>
+        </Box>
       </Box>
     </Box>
   );

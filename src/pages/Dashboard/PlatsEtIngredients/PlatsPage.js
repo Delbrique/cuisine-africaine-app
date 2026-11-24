@@ -63,6 +63,15 @@ function PlatsPage() {
     }
   }, [params, setParams]);
 
+  // Lien direct vers un plat (ex. depuis l'anti-gaspillage de l'accueil) : ?plat=<id>
+  useEffect(() => {
+    const id = params.get('plat');
+    if (!id || !plats) return;
+    const p = plats.find((x) => x.id === id);
+    if (p) setViewing(p);
+    setParams({}, { replace: true });
+  }, [params, setParams, plats]);
+
   const categories = useMemo(() => {
     const dyn = (plats || []).map((p) => p.categoriePlat).filter(Boolean);
     return [...new Set([...PLAT_CATEGORIES, ...dyn])].filter((c) => (plats || []).some((p) => p.categoriePlat === c));

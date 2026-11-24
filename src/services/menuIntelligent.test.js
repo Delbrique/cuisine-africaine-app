@@ -1,5 +1,5 @@
 // Tests du moteur de menu : `npm test -- menuIntelligent` (aucun accès réseau ni base de données).
-import { allergenesFamille, composerSemaine, conseilsSante } from './menuIntelligent';
+import { alertesPlat, allergenesFamille, composerSemaine, conseilsSante, platsAntiGaspi } from './menuIntelligent';
 
 const JOURS = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
 const ing = (...noms) => noms.map((nom) => ({ nom, quantite: 1, uniteMesure: 'pièce' }));
@@ -89,6 +89,48 @@ describe('anti-gaspillage', () => {
     expect(jour).toBeGreaterThanOrEqual(0);
     expect(jour).toBeLessThanOrEqual(2);
     expect(r.antiGaspi.map((a) => a.nom)).toContain('Gombo');
+  });
+});
+
+describe('anti-gaspillage sur l’accueil', () => {
+  const dans = (j) => new Date(Date.now() + j * 864e5);
+  test('propose d’abord les plats qui utilisent le plus de produits qui se périment', () => {
+    const r = platsAntiGaspi({
+      plats: PLATS,
+      stock: [
+        { id: 't', nom: 'Tomates', stockQuantity: 3, datePeremption: dans(1) },
+        { id: 'c', nom: 'Carotte', stockQuantity: 2, datePeremption: dans(3) },
+        { id: 'r', nom: 'Riz', stockQuantity: 5, datePeremption: dans(60) }, // pas urgent
+        { id: 'o', nom: 'Oignon', stockQuantity: 0, datePeremption: dans(1) }, // plus en stock
+      ],
+    });
+    expect(r.produits.map((p) => p.nom)).toEqual(['Tomates', 'Carotte']);
+    expect(r.plats).toHaveLength(3);
+    expect(r.plats[0].plat.id).toBe('salade'); // tomate + carotte
+    expect(r.plats[0].utilise).toEqual(expect.arrayContaining(['Tomates', 'Carotte']));
+  });
+
+  test('rien à signaler sans produit qui se périme ; les allergies sont respectées', () => {
+    expect(platsAntiGaspi({ plats: PLATS, stock: [{ id: 'r', nom: 'Riz', stockQuantity: 5 }] }).produits).toHaveLength(0);
+    const r = platsAntiGaspi({
+      plats: PLATS, membres: [{ nomComplet: 'Darel B', allergiesConnues: ['Arachides'] }],
+      stock: [{ id: 'cube', nom: 'Cube', stockQuantity: 4, datePeremption: dans(2) }], max: 20,
+    });
+    expect(r.plats.map((x) => x.plat.id)).not.toEqual(expect.arrayContaining(['ndole']));
+    expect(r.plats.map((x) => x.plat.id)).not.toContain('arachide');
+  });
+});
+
+describe('fiche d’un plat', () => {
+  test('allergies et conseils santé nominatifs', () => {
+    const membres = [
+      { nomComplet: 'Darel B', allergiesConnues: ['Arachides'] },
+      { nomComplet: 'Maman B', antecedentsMedicaux: ['Hypertension'] },
+    ];
+    const a = alertesPlat(PLATS.find((p) => p.id === 'ndole'), membres);
+    expect(a.allergies[0].membres).toEqual(['Darel']);
+    expect(a.conseils.join(' ')).toMatch(/Tension \(Maman\)/);
+    expect(alertesPlat(PLATS.find((p) => p.id === 'salade'), membres)).toEqual({ allergies: [], conseils: [] });
   });
 });
 
