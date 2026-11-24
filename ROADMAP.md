@@ -32,7 +32,8 @@ Cochez les cases au fur et à mesure (`[x]`).
 - [x] Prix de chaque article de la liste : prix de la famille, sinon prix relevés à Yaoundé (avec le nombre de relevés).
 - [x] Budget de la semaine : plafond, dépensé (privé à la famille), reste, alerte si la liste dépasse.
 - [x] Coût de chaque plat (carte et fiche), par ingrédient et par personne à table ; unités avec nombre comprises (« 400g », « 1 kg »).
-- [ ] Catalogue : compléter les ingrédients des plats qui n'en ont pas (Ndolé, Poulet DG, Eru… : 19 plats sur 27) et harmoniser les quantités/unités. **(M)**
+- [x] Catalogue : ingrédients des 27 plats complétés et harmonisés pour 4 personnes (24/11/2026) ; 38 nouveaux ingrédients ajoutés au stock à 0.
+- [ ] Stock de la famille BIYONG : harmoniser les unités ambiguës des anciens ingrédients (« 1 à 2 pièces », « 2 à 4 gousses »…) pour que leurs prix servent au coût des plats. **(S)**
 - [ ] Historique et évolution des prix d'un produit (graphique), comparaison entre marchés. **(M)**
 
 ### Marché et supermarché le plus proche
