@@ -1,5 +1,7 @@
-import React from 'react';
-import { Box, Button, Chip, Dialog, IconButton, Typography, useMediaQuery } from '@mui/material';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Alert, AlertTitle, Box, Button, Chip, Dialog, IconButton, Typography, useMediaQuery } from '@mui/material';
+import { getMembres } from '../../../services/membreService';
+import { alertesPlat } from '../../../services/menuIntelligent';
 import { useTheme } from '@mui/material/styles';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
@@ -33,6 +35,15 @@ export default function PlatDetail({ plat, onClose, onEdit, onDelete, extraActio
   const p = plat || {};
   const isFruit = p.categoriePlat === 'Fruit';
   const steps = (p.instructions || '').split(/\n+/).map((s) => s.trim()).filter(Boolean);
+
+  // Membres de la famille (allergies, santé), chargés une fois à l'ouverture de la fiche.
+  const ouvert = Boolean(plat);
+  const [membres, setMembres] = useState(null);
+  useEffect(() => {
+    if (!ouvert || membres) return;
+    getMembres().then(setMembres).catch(() => setMembres([]));
+  }, [ouvert, membres]);
+  const alertes = useMemo(() => alertesPlat(plat, membres || []), [plat, membres]);
 
   return (
     <Dialog open={Boolean(plat)} onClose={onClose} fullScreen={mobile} fullWidth maxWidth="md" scroll="body">
@@ -71,6 +82,22 @@ export default function PlatDetail({ plat, onClose, onEdit, onDelete, extraActio
               <Typography variant="body2" color="text.secondary" sx={{ mt: -1.5, mb: 3, textAlign: 'right' }}>
                 Soit environ <b>{formatFcfa(arrondi(cout.total / personnes))}</b> par personne pour {personnes} personnes à table.
               </Typography>
+            )}
+
+            {alertes.allergies.length > 0 && (
+              <Alert severity="error" sx={{ mb: 2, borderRadius: 3 }}>
+                <AlertTitle sx={{ fontWeight: 750 }}>Attention aux allergies</AlertTitle>
+                {alertes.allergies.map((a) => `${a.label} : ${a.membres.join(', ')}`).join(' · ')}. Ce plat contient un ingrédient à éviter.
+              </Alert>
+            )}
+            {alertes.conseils.length > 0 && (
+              <Alert severity="info" sx={{ mb: 3, borderRadius: 3 }}>
+                <AlertTitle sx={{ fontWeight: 750 }}>Adapter pour la famille</AlertTitle>
+                {alertes.conseils.map((c) => <Box key={c} component="div">{c}</Box>)}
+                <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
+                  Conseils généraux, pas un avis médical.
+                </Typography>
+              </Alert>
             )}
 
             {p.description && <Typography sx={{ mb: 3, fontSize: 16.5, lineHeight: 1.7 }}>{p.description}</Typography>}

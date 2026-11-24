@@ -82,11 +82,53 @@ const stockInfos = (stock = [], maintenant = new Date()) => {
     .map((i) => {
       const exp = toDate(i.datePeremption);
       const jours = exp ? Math.round((exp - auj) / JOUR_MS) : null;
-      return { id: i.id, nom: i.nom, cle: norm(i.nom), jours, bientot: jours !== null && jours >= 0 && jours <= 5 };
+      return { id: i.id, nom: i.nom, cle: cleNom(i.nom), jours, bientot: jours !== null && jours >= 0 && jours <= 5 };
     });
 };
+// Même règle que cleProduit() : « Tomates » et « tomate » sont le même produit.
+const cleNom = (s = '') => norm(s).replace(/[^a-z0-9 ]+/g, ' ').split(/\s+/).filter(Boolean)
+  .map((w) => (w.length > 3 ? w.replace(/(s|x)$/, '') : w)).join(' ');
 const ingredientsDuPlat = (plat, infos) =>
-  infos.filter((s) => (plat.ingredientsNecessaires || []).some((i) => i.ingredientId === s.id || norm(i.nom) === s.cle));
+  infos.filter((s) => (plat.ingredientsNecessaires || []).some((i) => i.ingredientId === s.id || cleNom(i.nom) === s.cle));
+
+// ---------- Fiche d'un plat ----------
+/**
+ * Ce que la famille doit savoir avant de cuisiner ce plat :
+ * allergies concernées (prénoms) et conseils santé. Conseils généraux, pas un avis médical.
+ */
+export const alertesPlat = (plat, membres = []) => {
+  if (!plat) return { allergies: [], conseils: [] };
+  const t = textePlat(plat);
+  return {
+    allergies: allergenesFamille(membres).filter((a) => a.regex.test(t)).map(({ label, membres: m }) => ({ label, membres: m })),
+    conseils: conseilsSante(plat, conditionsFamille(membres)),
+  };
+};
+
+// ---------- Anti-gaspillage (accueil) ----------
+/**
+ * Produits du stock qui se périment dans les `jours` prochains jours, et les plats de la famille
+ * qui en utilisent le plus (plats dangereux pour un allergique exclus).
+ * @returns {{ produits: [{ id, nom, jours }], plats: [{ plat, utilise: [noms] }] }}
+ */
+export const platsAntiGaspi = ({ plats = [], stock = [], membres = [], maintenant = new Date(), max = 3 }) => {
+  const produits = stockInfos(stock, maintenant).filter((s) => s.bientot).sort((a, b) => a.jours - b.jours);
+  if (!produits.length) return { produits: [], plats: [] };
+  const allergenes = allergenesFamille(membres);
+  const choix = plats
+    .filter((p) => !allergenes.some((a) => a.regex.test(textePlat(p))))
+    .map((p) => {
+      const utilise = ingredientsDuPlat(p, produits);
+      // Le plus urgent compte davantage : un produit à J-0 pèse plus qu'un produit à J-5.
+      const urgence = utilise.reduce((s, u) => s + (6 - u.jours), 0);
+      return { plat: p, utilise: utilise.map((u) => u.nom), urgence };
+    })
+    .filter((x) => x.utilise.length)
+    .sort((a, b) => b.utilise.length - a.utilise.length || b.urgence - a.urgence)
+    .slice(0, max)
+    .map(({ plat, utilise }) => ({ plat, utilise }));
+  return { produits: produits.map(({ id, nom, jours }) => ({ id, nom, jours })), plats: choix };
+};
 
 // ---------- Composition ----------
 /**
