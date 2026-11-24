@@ -84,6 +84,7 @@ export default function PrixProduitDialog({ open, onClose, nom }) {
               />
               <Typography variant="caption" color="text.secondary">
                 Prix médian par semaine · sur la période : {prix(h.mediane)} (médian), de {prix(h.min)} à {prix(h.max)} · {h.releves.length} relevé{h.releves.length > 1 ? 's' : ''}
+                {h.ecartes > 0 && ` · ${h.ecartes} prix inhabituel${h.ecartes > 1 ? 's' : ''} non compté${h.ecartes > 1 ? 's' : ''}`}
               </Typography>
             </Box>
           )}

@@ -46,6 +46,42 @@ export const uniteReference = (unite = '') => {
 
 export const UNITES_COURANTES = ['kg', 'g', 'l', 'tas', 'botte', 'pièce', 'sac', 'paquet', 'boîte', 'régime', 'seau'];
 
+/**
+ * Unité « propre » pour une saisie : « 1 à 2 pièces moyennes » → « pièce », « 2 à 4 gousses » → « gousse »,
+ * « 1 à 2 cubes » → « pièce ». Les unités mesurables (« 400g », « 1 kg ») sont gardées telles quelles.
+ */
+export const uniteSaisie = (unite = '') => {
+  const u = unite.trim().toLowerCase();
+  if (!u) return 'pièce';
+  if (CONVERSIONS[u] || /^\d+(?:[.,]\d+)?\s*(kg|g|gr|l|cl|ml)$/.test(u)) return unite.trim();
+  if (/pi[eè]ce|cube/.test(u)) return 'pièce';
+  if (/gousse/.test(u)) return 'gousse';
+  if (/pinc/.test(u)) return 'pincée';
+  if (/botte/.test(u)) return 'botte';
+  if (/\btas\b/.test(u)) return 'tas';
+  if (/kilo/.test(u)) return 'kg';
+  return unite.trim();
+};
+
+// ---------- Valeurs aberrantes ----------
+const ECART_MAX = 3; // au-delà de 3 fois (ou en deçà d'un tiers) du prix habituel : inhabituel
+
+/** Écarte les prix aberrants d'un groupe (dès 4 relevés) : hors de [médiane/3, médiane×3]. */
+const sansAberrants = (rs, val = (r) => r) => {
+  if (rs.length < 4) return rs;
+  const m = mediane(rs.map(val));
+  return rs.filter((r) => val(r) >= m / ECART_MAX && val(r) <= m * ECART_MAX);
+};
+
+/**
+ * Le prix saisi est-il inhabituel par rapport à un prix de référence ?
+ * Renvoie null si aucune référence, sinon { inhabituel, reference }.
+ */
+export const controlePrix = (prix, reference) => {
+  if (!(prix > 0) || !(reference > 0)) return null;
+  return { inhabituel: prix > reference * ECART_MAX || prix < reference / ECART_MAX, reference };
+};
+
 const mediane = (xs) => {
   const s = [...xs].sort((a, b) => a - b);
   const m = Math.floor(s.length / 2);
@@ -69,7 +105,7 @@ export const noterAchat = async ({ nom, montant, quantite, unite, lieu }) => {
   const m = Math.round(Number(montant));
   const q = Number(quantite);
   if (!nom || !(m > 0) || !(q > 0)) throw new Error('Indiquez le produit, le prix payé et la quantité.');
-  const ref = uniteReference(unite);
+  const ref = uniteReference(uniteSaisie(unite));
   const prixUnitaire = m / (q * ref.facteur); // FCFA par unité de référence
   const commun = {
     cle: cleProduit(nom),
@@ -118,7 +154,8 @@ export const statsPrix = async (noms) => {
     parUnite.get(r.unite).push(r);
   }
   for (const parUnite of out.values()) {
-    for (const [unite, rs] of parUnite) {
+    for (const [unite, tousRs] of parUnite) {
+      const rs = sansAberrants(tousRs, (r) => r.prixUnitaire); // un prix saisi par erreur ne fausse pas la médiane
       const xs = rs.map((r) => r.prixUnitaire);
       const lieux = {};
       rs.forEach((r) => { if (r.lieuNom) (lieux[r.lieuNom] = lieux[r.lieuNom] || []).push(r.prixUnitaire); });
@@ -164,8 +201,10 @@ export const historiqueProduit = async (nom, { jours = 90, unite } = {}) => {
   tous.forEach((r) => { compte[r.unite] = (compte[r.unite] || 0) + 1; });
   const unites = Object.keys(compte).sort((a, b) => compte[b] - compte[a]);
   const u = unite && compte[unite] ? unite : unites[0];
-  const releves = tous.filter((r) => r.unite === u).sort((a, b) => a.t - b.t);
-  if (!releves.length) return { unite: u || null, unites, releves: [], semaines: [], parLieu: [] };
+  const tousU = tous.filter((r) => r.unite === u);
+  const releves = sansAberrants(tousU, (r) => r.prixUnitaire).sort((a, b) => a.t - b.t);
+  const ecartes = tousU.length - releves.length; // relevés inhabituels, non pris en compte
+  if (!releves.length) return { unite: u || null, unites, releves: [], semaines: [], parLieu: [], ecartes };
 
   const parSemaine = {};
   releves.forEach((r) => { (parSemaine[semaineDe(r.t)] = parSemaine[semaineDe(r.t)] || []).push(r.prixUnitaire); });
@@ -185,6 +224,7 @@ export const historiqueProduit = async (nom, { jours = 90, unite } = {}) => {
     min: Math.min(...xs),
     max: Math.max(...xs),
     evolution: semaines.length > 1 && premier > 0 ? (dernier - premier) / premier : null,
+    ecartes,
     parLieu: Object.entries(lieux).map(([lieuNom, v]) => ({ lieuNom, mediane: mediane(v), n: v.length })).sort((a, b) => a.mediane - b.mediane),
   };
 };
