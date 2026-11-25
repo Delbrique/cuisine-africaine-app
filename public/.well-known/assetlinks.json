@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.libiyo.app",
+      "sha256_cert_fingerprints": [
+        "E9:D3:74:CF:DC:38:7A:37:7E:B8:83:1D:AE:ED:27:89:0B:3E:E6:49:C5:D1:7F:8B:AA:19:C6:AC:85:A2:20:DC"
+      ]
+    }
+  }
+]
