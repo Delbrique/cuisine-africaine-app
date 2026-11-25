@@ -22,7 +22,7 @@
   {
     "target": "app",
     "public": "build",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**", "serve.json"],
+    "ignore": ["firebase.json", "**/node_modules/**", "serve.json"],
     "cleanUrls": false,
     "rewrites": [{ "source": "**", "destination": "/index.html" }],
     "headers": [
