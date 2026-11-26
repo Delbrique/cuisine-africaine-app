@@ -96,7 +96,7 @@ function AccueilPage() {
           Voici ce qui mijote aujourd'hui dans la cuisine familiale.
         </Typography>
 
-        <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' } }}>
+        <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' } }}>
           {todayMeals.map((m) => (
             <ButtonBase
               key={m.key}
@@ -124,7 +124,7 @@ function AccueilPage() {
       </Box>
 
       {/* Chiffres clés */}
-      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4, 1fr)' }, mb: 3 }}>
+      <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' }, mb: 3 }}>
         <StatCard icon={<GroupsRoundedIcon />} label="Membres" value={count(membres)} onClick={() => navigate(`${base}/membres`)} />
         <StatCard icon={<RestaurantMenuRoundedIcon />} label="Plats" color="secondary" value={count(parts.plats)} onClick={() => navigate(`${base}/plats`)} />
         <StatCard icon={<Inventory2RoundedIcon />} label="En stock" color="info" value={ingredients ? inStock : '–'} onClick={() => navigate(`${base}/stock`)} />
@@ -134,7 +134,7 @@ function AccueilPage() {
       <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', lg: '1.4fr 1fr' } }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           {/* Actions rapides */}
-          <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, 1fr)' } }}>
+          <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(4, minmax(0, 1fr))' } }}>
             {QUICK.map(({ label, icon: Icon, to, color }) => (
               <Card key={label} sx={{ transition: 'all .2s', '&:hover': { borderColor: `${color}.main`, transform: 'translateY(-2px)' } }}>
                 <ButtonBase component={RouterLink} to={to} sx={{ width: '100%', flexDirection: 'column', alignItems: 'flex-start', gap: 1.5, p: 2 }}>

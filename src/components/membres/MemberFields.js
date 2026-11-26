@@ -4,7 +4,7 @@ import { ChipSelect } from '../ui';
 import { ALLERGIES, ANTECEDENTS, GROUPES_SANGUINS, PROFESSIONS, ROLES, SEXES, SITUATIONS, SUGGESTIONS } from '../../constants';
 import { withRas } from './memberModel';
 
-const grid = { display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } };
+const grid = { display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } };
 
 /** Champ texte libre avec suggestions. */
 export function SuggestField({ label, value, onChange, options, placeholder }) {
@@ -112,7 +112,7 @@ export function PersonalFields({ form, set }) {
 
 export function BodyFields({ form, set }) {
   return (
-    <Box sx={{ ...grid, gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1fr' } }}>
+    <Box sx={{ ...grid, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))' } }}>
       <TextField label="Taille (cm)" type="number" value={form.taille} inputProps={{ min: 0 }} onChange={(e) => set({ taille: e.target.value })} />
       <TextField label="Poids (kg)" type="number" value={form.poids} inputProps={{ min: 0 }} onChange={(e) => set({ poids: e.target.value })} />
       <TextField select label="Groupe sanguin" value={form.groupeSanguin} onChange={(e) => set({ groupeSanguin: e.target.value })} sx={{ gridColumn: { xs: 'span 2', sm: 'auto' } }}>

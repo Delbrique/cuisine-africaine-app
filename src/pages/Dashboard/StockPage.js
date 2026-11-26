@@ -233,7 +233,7 @@ function StockPage() {
         }
       />
 
-      <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: '1fr 1fr', lg: 'repeat(4, 1fr)' }, mb: 3 }}>
+      <Box sx={{ display: 'grid', gap: 1.5, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', lg: 'repeat(4, minmax(0, 1fr))' }, mb: 3 }}>
         <StatCard icon={<CheckCircleRoundedIcon />} label="En stock" color="success" value={counts.ok ?? '–'} active={filter === 'ok'} onClick={() => setFilter(filter === 'ok' ? 'all' : 'ok')} />
         <StatCard icon={<WarningRoundedIcon />} label="Stock faible" color="warning" value={counts.low ?? '–'} active={filter === 'low'} onClick={() => setFilter(filter === 'low' ? 'all' : 'low')} />
         <StatCard icon={<RemoveShoppingCartRoundedIcon />} label="Épuisés" color="error" value={counts.out ?? '–'} active={filter === 'out'} onClick={() => setFilter(filter === 'out' ? 'all' : 'out')} />

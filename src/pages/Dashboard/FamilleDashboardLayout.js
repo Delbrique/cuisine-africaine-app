@@ -166,7 +166,7 @@ function MoreSheet({ open, onClose, onOpen, pathname }) {
       PaperProps={{ sx: { borderRadius: '28px 28px 0 0', pb: 'calc(env(safe-area-inset-bottom) + 16px)' } }}
     >
       <Box sx={{ width: 42, height: 5, borderRadius: 9, bgcolor: 'divider', mx: 'auto', mt: 1.25, mb: 2 }} />
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.25, px: 2 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1.25, px: 2 }}>
         {others.map((item) => {
           const Icon = item.icon;
           const active = isActive(item, pathname);

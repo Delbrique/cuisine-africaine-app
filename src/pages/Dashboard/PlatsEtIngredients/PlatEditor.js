@@ -11,7 +11,7 @@ const empty = {
   instructions: '', ingredientsNecessaires: [], categoriePlat: '', utilisation: '', richeEn: '',
 };
 
-const grid = { display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' } };
+const grid = { display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' } };
 
 /** Formulaire d'ajout / modification d'un plat. Produit les mêmes données qu'avant. */
 export default function PlatEditor({ open, plat, ingredients, onClose, onSave }) {
@@ -114,7 +114,7 @@ export default function PlatEditor({ open, plat, ingredients, onClose, onSave })
         <ChipSelect label="Catégorie" single allowEmpty={false} options={PLAT_CATEGORIES} value={form.categoriePlat} onChange={(v) => set({ categoriePlat: v })} />
 
         {isFruit ? (
-          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' } }}>
+          <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' } }}>
             <TextField label="Utilisation" value={form.utilisation} onChange={(e) => set({ utilisation: e.target.value })} multiline minRows={2} placeholder="Frais, en jus, en salade…" />
             <TextField label="Riche en" value={form.richeEn} onChange={(e) => set({ richeEn: e.target.value })} multiline minRows={2} placeholder="Vitamine C, fibres…" />
           </Box>
