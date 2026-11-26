@@ -65,7 +65,9 @@ function ThemeColorSync() {
 
 function App() {
   return (
-    <ThemeProvider theme={theme} defaultMode="system">
+    // Thème clair par défaut (même si le téléphone est en mode sombre) ; le sombre reste au choix.
+    // Nouvelle clé de stockage : tout le monde repart sur le clair une fois.
+    <ThemeProvider theme={theme} defaultMode="light" modeStorageKey="libiyo-theme">
       <CssBaseline enableColorScheme />
       <ThemeColorSync />
       <SnackbarProvider

@@ -76,7 +76,7 @@ function LoginPage() {
 
   return (
     <AuthLayout>
-      <Typography variant="h4" component="h1" sx={{ mb: 0.75 }}>Bon retour 👋🏾</Typography>
+      <Typography variant="h4" component="h1" sx={{ mb: 0.75 }}>Bon retour</Typography>
       <Typography color="text.secondary" sx={{ mb: 3.5 }}>
         Connectez-vous pour retrouver le carnet de cuisine de votre famille.
       </Typography>
