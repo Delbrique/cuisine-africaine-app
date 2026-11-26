@@ -84,7 +84,7 @@ export default function UserMenu({ variant = 'card' }) {
         <Box sx={{ px: 2, py: 1.5 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700, display: 'block', mb: 1 }}>APPARENCE</Typography>
           <ToggleButtonGroup
-            size="small" exclusive fullWidth value={mode || 'system'}
+            size="small" exclusive fullWidth value={mode || 'light'}
             onChange={(_, v) => v && setMode(v)}
             sx={{ '& .MuiToggleButton-root': { gap: 0.5, textTransform: 'none', fontWeight: 600, borderRadius: '10px !important', border: 'none' }, bgcolor: 'sand.main', p: 0.5, borderRadius: 3 }}
           >

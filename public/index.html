@@ -41,8 +41,7 @@
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
-    <meta name="theme-color" content="#C2461A" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#1A120D" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#C2461A" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -53,7 +52,6 @@
     <style>
       /* Écran de démarrage affiché avant le chargement de React */
       html, body { background: #FBF5EC; }
-      @media (prefers-color-scheme: dark) { html, body { background: #1A120D; } }
       #boot {
         position: fixed; inset: 0; display: flex; flex-direction: column;
         align-items: center; justify-content: center; gap: 18px;
