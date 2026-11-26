@@ -8,7 +8,13 @@ import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
     apiKey: "AIzaSyDb4J3ey6rieKTF7bXV3bec24Du-caEmQc",
-    authDomain: "cuisineafricaineapp.firebaseapp.com",
+    // Connexion Google sur le MÊME domaine que l'application : Safari (iPhone) bloque l'échange
+    // entre deux domaines différents. libiyo.web.app sert /__/auth/handler et figure dans les
+    // URI de redirection du client OAuth (Google Cloud > Identifiants). Ailleurs (localhost…),
+    // on garde le domaine Firebase par défaut.
+    authDomain: typeof window !== 'undefined' && ['libiyo.web.app'].includes(window.location.hostname)
+      ? window.location.hostname
+      : "cuisineafricaineapp.firebaseapp.com",
     projectId: "cuisineafricaineapp",
     storageBucket: "cuisineafricaineapp.firebasestorage.app", // Ce champ sera toujours là, mais on n'initialise pas getStorage
     messagingSenderId: "760302547314",
