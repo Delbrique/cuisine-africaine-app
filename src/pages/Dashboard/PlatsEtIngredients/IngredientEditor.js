@@ -88,7 +88,7 @@ export default function IngredientEditor({ open, ingredient, withStock = false, 
           <PhotoPicker round size={104} value={form.photoURL} onChange={(v) => set({ photoURL: v })} label="Photo" sx={{ alignSelf: { xs: 'center', sm: 'flex-start' } }} />
           <Box sx={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
             <TextField label="Nom de l'ingrédient" value={form.nom} onChange={(e) => set({ nom: e.target.value })} required placeholder="Ex : Feuilles de ndolé" />
-            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: '1fr 1fr' }}>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
               <TextField label="Unité de mesure" value={form.uniteMesure} onChange={(e) => set({ uniteMesure: e.target.value })} required placeholder="g, ml, pièce…" />
               <TextField label="Prix par unité" type="number" value={form.prix} onChange={(e) => set({ prix: e.target.value })} required inputProps={{ step: '0.01', min: 0 }}
                 InputProps={{ endAdornment: <InputAdornment position="end">FCFA</InputAdornment> }} />
@@ -105,7 +105,7 @@ export default function IngredientEditor({ open, ingredient, withStock = false, 
         {withStock && (
           <Box sx={{ p: 2, borderRadius: 4, bgcolor: 'sand.main' }}>
             <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5, textTransform: 'uppercase' }}>Stock</Typography>
-            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr 1fr', sm: '1fr 1fr 1.2fr' } }}>
+            <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: '1fr 1fr 1.2fr' } }}>
               <TextField label="Quantité en stock" type="number" value={form.stockQuantity} onChange={(e) => set({ stockQuantity: e.target.value })} required inputProps={{ step: '0.01' }}
                 InputProps={{ endAdornment: <InputAdornment position="end">{unit}</InputAdornment> }} />
               <TextField label="Seuil minimum" type="number" value={form.seuilMinimum} onChange={(e) => set({ seuilMinimum: e.target.value })} inputProps={{ step: '0.01' }}

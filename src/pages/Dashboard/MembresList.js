@@ -88,7 +88,7 @@ function MemberDetail({ membre, plats, onClose, onEdit, onDelete }) {
                 <Box><Typography variant="caption" color="text.secondary" sx={{ fontWeight: 650 }}>Allergies</Typography><ChipList items={real(m.allergiesConnues)} color="error" empty="Aucune connue" /></Box>
                 <Box><Typography variant="caption" color="text.secondary" sx={{ fontWeight: 650 }}>Antécédents</Typography><ChipList items={real(m.antecedentsMedicaux)} color="warning" empty="Rien à signaler" /></Box>
               </Box>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1, mt: 1 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 1, mt: 1 }}>
                 <Info k="Taille" v={m.taille && `${m.taille} cm`} />
                 <Info k="Poids" v={m.poids && `${m.poids} kg`} />
                 <Info k="Groupe" v={m.groupeSanguin} />
@@ -99,14 +99,14 @@ function MemberDetail({ membre, plats, onClose, onEdit, onDelete }) {
                 {favoris.length ? favoris.map((n) => <Chip key={n} icon={<FavoriteRoundedIcon />} label={n} size="small" color="primary" />) : <Typography variant="body2" color="text.secondary">Aucun plat préféré</Typography>}
               </Box>
               <ChipList items={m.loisirsHobbies || []} empty="" />
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
                 <Info k="Couleur préférée" v={m.couleurPreferee} />
                 <Info k="Film / série" v={m.filmSeriePrefere} />
                 <Info k="Animaux" v={m.animauxCompagnie} />
               </Box>
             </Section>
             <Section title="Infos personnelles">
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
                 <Info k="Email" v={m.email} />
                 <Info k="Téléphone" v={m.telephone} />
                 <Info k="Naissance" v={[m.dateNaissance, m.lieuNaissance].filter(Boolean).join(' · ')} />

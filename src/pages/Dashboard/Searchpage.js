@@ -250,7 +250,7 @@ function Assistant({ plats, height }) {
           </Box>
         )}
         {messages.length === 1 && model && (
-          <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, mt: 'auto' }}>
+          <Box sx={{ display: 'grid', gap: 1, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, mt: 'auto' }}>
             {SUGGESTIONS.map((s) => (
               <ButtonBase key={s} onClick={() => send(s)} sx={{ justifyContent: 'flex-start', textAlign: 'left', p: 1.5, borderRadius: 3, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider', fontSize: 13.5, fontWeight: 600, '&:hover': { borderColor: 'primary.main' } }}>
                 {s}

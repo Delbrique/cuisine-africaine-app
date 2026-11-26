@@ -104,7 +104,7 @@ export default function AccueilPage() {
           <Typography component="h2" variant="h3" sx={{ fontSize: { xs: 30, md: 40 }, textAlign: 'center', mb: { xs: 4, md: 6 } }}>
             Tout pour organiser la cuisine de la maison
           </Typography>
-          <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' } }}>
+          <Box sx={{ display: 'grid', gap: 2.5, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))' } }}>
             {FEATURES.map(({ icon: Icon, title, text }) => (
               <Box key={title} sx={{ p: 3, borderRadius: 5, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
                 <Box sx={{ width: 46, height: 46, borderRadius: '14px', display: 'grid', placeItems: 'center', mb: 2, bgcolor: 'primary.main', color: 'primary.contrastText' }}>
@@ -140,7 +140,7 @@ export default function AccueilPage() {
           <Typography component="h2" variant="h3" sx={{ fontSize: { xs: 30, md: 40 }, textAlign: 'center', mb: { xs: 4, md: 6 } }}>
             Comment ça marche ?
           </Typography>
-          <Box sx={{ display: 'grid', gap: 4, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' } }}>
+          <Box sx={{ display: 'grid', gap: 4, gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' } }}>
             {STEPS.map(([n, title, text]) => (
               <Box key={n} sx={{ textAlign: 'center' }}>
                 <Box sx={{ width: 52, height: 52, mx: 'auto', mb: 1.5, borderRadius: '50%', display: 'grid', placeItems: 'center', bgcolor: 'secondary.main', color: 'secondary.contrastText', fontFamily: display, fontWeight: 700, fontSize: 22 }}>

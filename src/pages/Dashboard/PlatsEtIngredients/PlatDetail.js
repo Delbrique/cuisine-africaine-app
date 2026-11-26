@@ -103,7 +103,7 @@ export default function PlatDetail({ plat, onClose, onEdit, onDelete, extraActio
             {p.description && <Typography sx={{ mb: 3, fontSize: 16.5, lineHeight: 1.7 }}>{p.description}</Typography>}
 
             {isFruit ? (
-              <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, mb: 3 }}>
+              <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, mb: 3 }}>
                 <Box sx={{ p: 2, borderRadius: 3, bgcolor: 'sand.main' }}>
                   <Typography variant="overline" color="text.secondary">Utilisation</Typography>
                   <Typography>{p.utilisation || '—'}</Typography>

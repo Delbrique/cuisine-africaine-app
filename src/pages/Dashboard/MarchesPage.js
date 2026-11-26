@@ -260,7 +260,7 @@ export default function MarchesPage() {
               )}
 
               <Typography variant="subtitle2" sx={{ mt: 2.5, mb: 1, color: 'text.secondary' }}>Y ALLER AVEC</Typography>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 1 }}>
                 <Button variant="contained" startIcon={<NavigationRoundedIcon />} href={liens.googleMaps} target="_blank" rel="noopener">Google Maps</Button>
                 <Button variant="outlined" href={liens.waze} target="_blank" rel="noopener">Waze</Button>
                 <Button variant="outlined" color="inherit" startIcon={<ContentCopyRoundedIcon />} onClick={() => copierPourYango(selected)} sx={{ gridColumn: '1 / -1' }}>

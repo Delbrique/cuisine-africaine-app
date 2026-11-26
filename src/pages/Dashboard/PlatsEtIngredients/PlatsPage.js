@@ -183,7 +183,7 @@ function PlatsPage() {
       ) : filtered.length === 0 ? (
         <Typography color="text.secondary" sx={{ py: 6, textAlign: 'center' }}>Aucun plat ne correspond à votre recherche.</Typography>
       ) : (
-        <Box sx={{ display: 'grid', gap: { xs: 1.5, sm: 2.5 }, gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(auto-fill, minmax(260px, 1fr))' } }}>
+        <Box sx={{ display: 'grid', gap: { xs: 1.5, sm: 2.5 }, gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(auto-fill, minmax(260px, 1fr))' } }}>
           {filtered.map((p) => {
             const checked = selection.isSelected(p.id);
             return (
