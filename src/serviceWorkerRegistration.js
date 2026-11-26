@@ -6,6 +6,13 @@ export function register({ onUpdate } = {}) {
     navigator.serviceWorker
       .register(`${process.env.PUBLIC_URL}/service-worker.js`)
       .then((registration) => {
+        // Une nouvelle version déjà téléchargée lors d'une visite précédente, jamais activée.
+        if (registration.waiting && navigator.serviceWorker.controller) onUpdate?.(registration);
+        // L'app installée sur l'écran d'accueil (iPhone) reste ouverte longtemps en arrière-plan :
+        // on recherche une nouvelle version à chaque retour au premier plan.
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') registration.update().catch(() => {});
+        });
         registration.onupdatefound = () => {
           const worker = registration.installing;
           if (!worker) return;

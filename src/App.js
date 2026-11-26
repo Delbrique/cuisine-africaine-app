@@ -24,7 +24,16 @@ const FamilleDashboardLayout = lazy(() => import('./pages/Dashboard/FamilleDashb
 /** Propose de recharger quand une nouvelle version de la PWA est disponible. */
 function UpdateNotifier() {
   useEffect(() => {
-    const onUpdate = (e) =>
+    const onUpdate = (e) => {
+      // Juste après l'ouverture (rien en cours de saisie) : on passe directement à la nouvelle version.
+      if (performance.now() < 15000) { applyUpdate(e.detail); return; }
+      // Sinon : bouton « Mettre à jour », et mise à jour automatique dès que l'app passe en arrière-plan.
+      const auto = () => {
+        if (document.visibilityState !== 'hidden') return;
+        document.removeEventListener('visibilitychange', auto);
+        applyUpdate(e.detail);
+      };
+      document.addEventListener('visibilitychange', auto);
       enqueueSnackbar('Une nouvelle version est disponible.', {
         variant: 'info',
         persist: true,
@@ -34,6 +43,7 @@ function UpdateNotifier() {
           </Button>
         ),
       });
+    };
     window.addEventListener('sw-update', onUpdate);
     return () => window.removeEventListener('sw-update', onUpdate);
   }, []);
